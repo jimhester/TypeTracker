@@ -8,10 +8,10 @@
 #include <QTimer>
 #include <qVariant>
 #include <QStringList>
+#include <QString>
 
 class QByteArray;
 class QSqlQuery;
-class QString;
 
 struct count{
 	int number;
@@ -27,35 +27,40 @@ class InputEvent
 {
 public:
 	InputEvent(void);
-	InputEvent(const QByteArray & str, int time=0);
-	InputEvent(const QByteArray & str, const QByteArray & time);
-	InputEvent(const QByteArray & str, const QByteArray & time, const QDateTime & n_date);
+	InputEvent(const QString & keys, int time=0);
+	InputEvent(const QString & keys, const QVector<int> & times = QVector<int>(), const QDateTime & date=QDateTime(), const QVector<bool> & errors=QVector<bool>());
+	InputEvent(const QString & keys, const QByteArray & time=QByteArray(), const QDateTime & n_date=QDateTime());
 	~InputEvent(void);
-	void addKey(const QString & key, int msec);
+	void addKey(const QString & key, int msec,bool isCorrect=true);
+	void setDate(const QDateTime &datetime);
 	void clear();
 	bool isEmpty() const;
-	bool isValid(); //const;
-	QByteArray keys() const;
+	bool isValid() const;
+	QString keys() const;
 	QVector<int> times() const;
 	QDateTime date() const;
 	QString str() const;
 	int totalTime() const;
-	void setDate(const QDateTime &datetime);
-	const QHash<QString, count> & substr(int size=1,bool allowSpace=true);
-	const QHash<QString, count> & words();
+	double trueWordsPerMinute() const;
+	double normalizedWordsPerMinute(int size=5) const;
+	double charactersPerMinute() const;
+	double percentCorrect() const;
+	const QHash<QString, count> & substr(int size=1,bool allowSpace=true) const;
+	const QHash<QString, count> & words() const;
 
 private:
-	void process();
+	void process() const;
 
-	bool m_processed;
-	QByteArray m_keys;
+	mutable bool m_processed;
+	QString m_keys;
 	QVector<int> m_times;
+	QVector<bool> m_error;
 	QDateTime m_datetime;
-	QString m_final;
-	QVector<bool> m_finalErrors;
-	QVector<int> m_finalTimes;
-	QHash<int, QHash<QString,count> > m_substr;
-	QHash<QString,count> m_words;
+	mutable QString m_final;
+	mutable QVector<bool> m_finalErrors;
+	mutable QVector<int> m_finalTimes;
+	mutable QHash<int, QHash<QString,count> > m_substr;
+	mutable QHash<QString,count> m_words;
 };
 
 class InputEventModel;
@@ -113,8 +118,9 @@ public slots:
 
 public:
     enum Roles {
-		WordRole = Qt::UserRole + 1,
-        SubstrRole = Qt::UserRole + 2, //the size of the substr is role #-SubstrRole+1
+		ItemOffsetRole = Qt::UserRole + 1,
+		WordRole = Qt::UserRole + 2,
+        SubstrRole = Qt::UserRole + 3, //the size of the substr is role #-SubstrRole+1
     };
 
     InputEventModel(InputEventManager *InputEvent, QObject *parent = 0);

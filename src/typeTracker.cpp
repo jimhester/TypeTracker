@@ -14,7 +14,8 @@
 #include "typeTracker.h"
 #include "ttEdit.h"
 #include "ttTableView.h"
-#include "edittableview.h"
+#include "EditTableView.h"
+#include "InputLesson.h"
 #include <qwt_slider.h>
 
 QWidget* TypeTracker::app = 0;
@@ -27,7 +28,8 @@ LRESULT CALLBACK HookProc(int nCode, WPARAM wParam, LPARAM lParam)
 			HWND win = TypeTracker::app->winId();
 			HWND currFocus = GetFocus();
 			DWORD thread = GetWindowThreadProcessId(currFocus,NULL);
-			if(thread == 0){
+			if(thread == 0)
+			{
 				LPARAM nParam=MAKELPARAM(0,msg->scanCode | (msg->flags >> 8));
 				PostMessage(win,wParam,msg->vkCode,nParam);
 			}
@@ -60,12 +62,11 @@ TypeTracker::TypeTracker()
 	layout->addWidget(m_eventTree);
 	layout->addWidget(slider);
 	tab->addTab(eventTable,"Events");
-	textEdit = new ttEdit();
-	tab->addTab(textEdit,"CurrentLesson");
 	tab->addTab(test,"test");
-	tab->widget(2)->setLayout(layout);
+	tab->widget(1)->setLayout(layout);
 	tab->setDocumentMode(true);
 	tab->setTabsClosable(true);
+	connect(tab,SIGNAL(tabCloseRequested(int) ),this, SLOT(closeTab(int) ) );
 	tab->setMovable(true);
 	this->show();
 	//connect(eventTable, SIGNAL(selectionRightClicked(const QModelIndexList &)),this,SLOT(createSubstrAnalysis(const QModelIndexList &)));
@@ -77,9 +78,9 @@ TypeTracker::TypeTracker()
 	createActions();
 }
 
-QTreeView* TypeTracker::setupTreeView(const QString &title)
+ttTreeView* TypeTracker::setupTreeView(const QString &title)
 {
-	QTreeView* view = new QTreeView();
+	ttTreeView* view = new ttTreeView();
 	InputEventModel * model = m_manager->inputEventModel();
 	m_treeModel = new InputEventTreeModel(model,this);
 	QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(this);
@@ -95,6 +96,7 @@ EditTableView* TypeTracker::setupTableView(const QString &title)
 	InputEventModel * model = m_manager->inputEventModel();
 	QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(this);
 	proxyModel->setSourceModel(model);
+	proxyModel->setDynamicSortFilter(true);
 	view->setModel(proxyModel);
     view->setWindowTitle(title);
 	view->setSortingEnabled(true);
@@ -139,11 +141,11 @@ void TypeTracker::createSubstrAnalysis(const QModelIndexList& sel)
 }
 void TypeTracker::createActions()
 {
-	actionCut->setShortcuts(QKeySequence::Cut);
+	/*actionCut->setShortcuts(QKeySequence::Cut);
 	actionCut->setStatusTip(tr("Cut the current selection's contents to the "
 						 "clipboard"));
 	connect(actionCut, SIGNAL(triggered()), this, SLOT(cut()));
-
+*/
 	actionCopy->setShortcuts(QKeySequence::Copy);
 	actionCopy->setStatusTip(tr("Copy the current selection's contents to the "
 						  "clipboard"));
@@ -158,6 +160,11 @@ void TypeTracker::createActions()
 	actionExit->setStatusTip(tr("Exit the application"));
 	connect(actionExit, SIGNAL(triggered()), this, SLOT(close()));
 
+	connect(actionCreate_Lesson, SIGNAL(triggered()), this, SLOT(createLesson()));
+
+	actionClose->setShortcuts(QKeySequence::Close);
+	actionClose->setStatusTip(tr("Close current tab"));
+	connect(actionClose, SIGNAL(triggered()), this, SLOT(closeTab()));
 	//a_remove->setShortcuts(QKeySequence::Delete);
 	//a_remove->setStatusTip(tr("Remove current row from the database"));
 	//connect(a_remove, SIGNAL(triggered()), this, SLOT(remove()));
@@ -165,10 +172,24 @@ void TypeTracker::createActions()
 void TypeTracker::contextMenuEvent(QContextMenuEvent *event)
 {
 	QMenu menu(this);
-	menu.addAction(a_remove);
+	menu.addAction(actionCreate_Lesson);
 	menu.exec(event->globalPos());
 }
-void TypeTracker::copy()
+//void TypeTracker::copy()
+//{
+////	QWidget * test = tab->currentWidget();
+//}
+void TypeTracker::createLesson()
 {
-	QWidget * test = tab->currentWidget();
+	if(QAbstractItemView* view = tab->currentWidget()->findChild<QAbstractItemView*>()){
+		QModelIndex idx = view->currentIndex();
+		InputEvent evnt = m_manager->InputEvents().at(idx.data(InputEventModel::ItemOffsetRole).toInt());
+		InputLesson* lesson = new InputLesson(evnt);
+		lesson->setManager(m_manager);
+		tab->addTab(lesson,"Lesson");
+	}
+}
+void TypeTracker::closeTab(int idx)
+{
+	tab->removeTab(idx);
 }

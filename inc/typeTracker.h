@@ -5,7 +5,8 @@
 #include <QAbstractEventDispatcher>
 #include <windows.h>
 #include "inputEvent.h"
-#include "ui_typeTracker.h"
+#include "ttTreeView.h"
+#include "../ui_typeTracker.h"
 
 class ttEdit;
 class inputEventModel;
@@ -28,7 +29,9 @@ public:
 private slots:
 	void endInputEvent();
 	void createSubstrAnalysis(const QModelIndexList& sel);
-	void copy();
+	void createLesson();
+	void closeTab(int);
+	//void copy();
 //	void remove();
 	//void eventTableClicked(const QModelIndex & index);
 protected:	
@@ -40,7 +43,7 @@ private:
 	bool createConnection();
 	void getEvents();
 	EditTableView* setupTableView(const QString &title);
-	QTreeView* setupTreeView(const QString &title);
+	ttTreeView* setupTreeView(const QString &title);
 
 	static QWidget* TypeTracker::app;
 	friend LRESULT CALLBACK HookProc(int nCode, WPARAM wParam, LPARAM lParam);
@@ -54,10 +57,9 @@ private:
 	QList<InputEvent*> evnts;
 
 	QTabWidget *tab;
-	ttEdit *textEdit;
 	EditTableView *eventTable;
 	InputEventTreeModel* m_treeModel;
-	QTreeView *m_eventTree;
+	ttTreeView *m_eventTree;
 	InputEventManager* m_manager;
 
 	QAction* a_remove;

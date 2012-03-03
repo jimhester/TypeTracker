@@ -1,4 +1,4 @@
-#include <QBytearray>
+#include <QString>
 #include <QtSql>
 #include <QHash>
 #include <QMessageBox>
@@ -10,61 +10,76 @@ InputEvent::InputEvent(void)
 {
 	m_processed = false;
 }
-InputEvent::InputEvent(const QByteArray & str, int time)
+InputEvent::InputEvent(const QString & keys, int time)
+	: m_keys(keys) ,
+	m_processed(false)
 {
-	m_processed = false;
-	m_times.fill(time,str.size());
+	m_times.fill(time,keys.size());
+	m_error.fill(false,keys.size());
 	process();
 }
-InputEvent::InputEvent(const QByteArray & str, const QByteArray & time)
+InputEvent::InputEvent(const QString & keys, const QVector<int> & times, const QDateTime & date, const QVector<bool> & errors)
+	: m_keys(keys) ,
+	m_times(times) ,
+	m_datetime(date) ,
+	m_error(errors) ,
+	m_processed(false)
 {
-	m_processed = false;
-	QByteArray a = time;
+	if(m_times.size() == 0)
+		m_times.fill(0,keys.size());
+	if(m_error.size() == 0)
+		m_error.fill(false,keys.size());
+
+	process();
+}
+InputEvent::InputEvent(const QString & keys, const QByteArray & times, const QDateTime & date)
+	: m_keys(keys) ,
+	m_datetime(date) ,
+	m_processed(false)
+{
+	QByteArray a = times;
 	{
 		QDataStream s(&a, QIODevice::ReadOnly);
 		s >> m_times;
 	}
-	m_keys = str;
-	process();
-}
-InputEvent::InputEvent(const QByteArray & str, const QByteArray & time, const QDateTime & n_date)
-{
-	m_processed = false;
-	QByteArray a = time;
-	{
-		QDataStream s(&a, QIODevice::ReadOnly);
-		s >> m_times;
-	}
-	m_keys = str;
-	m_datetime = n_date;
+	m_datetime = date;
+	if(m_times.size() == 0)
+		m_times.fill(0,keys.size());
+	if(m_error.size() == 0)
+		m_error.fill(false,keys.size());
+
 	process();
 }
 InputEvent::~InputEvent(void)
 {
 }
 
-void InputEvent::process()
+void InputEvent::process() const
 {
 	if(!m_processed){
 		m_final.clear();
 		m_finalErrors.clear();
 		m_finalTimes.clear();
 		int finalItr = 0;
+		m_final.resize(m_keys.size());
 		m_finalErrors.fill(false,m_keys.size());
 		m_finalTimes.fill(0,m_keys.size());
 		for(int i = 0; i < m_keys.size();i++){
 			m_finalTimes[finalItr]+=m_times[i];
 			if(m_keys.at(i) == 0x08){ //0x08 is backspace
 				finalItr = (finalItr-1) % (finalItr + 1); //decrement until 0
-				m_final.chop(1);
 				m_finalErrors[finalItr]=true;
 			} else {
+				if(m_error.at(i)){
+					m_finalErrors[finalItr]=true;
+				}
+				m_final[finalItr] = m_keys.at(i);
 				finalItr++;
-				m_final += m_keys.at(i);
 			}
 		}
-		m_finalTimes = m_finalTimes.mid(0,m_final.size());
-		m_finalErrors = m_finalErrors.mid(0,m_final.size());
+		m_final = m_final.left(finalItr);
+		m_finalTimes = m_finalTimes.mid(0,finalItr);
+		m_finalErrors = m_finalErrors.mid(0,finalItr);
 	}
 	m_processed = true;
 }
@@ -77,7 +92,7 @@ void InputEvent::clear()
 	m_processed = false;
 }
 
-bool InputEvent::isValid() //const
+bool InputEvent::isValid() const
 {
 	process();
 	QRegExp rx("(\\s*\\w+\\b){5}");
@@ -88,13 +103,14 @@ bool InputEvent::isEmpty() const
 {
 	return(m_keys.isEmpty());
 }
-void InputEvent::addKey(const QString & key, int msec)
+void InputEvent::addKey(const QString & key, int msec,bool isCorrect)
 {
 	m_keys += key;
 	m_times += msec;
+	m_error += !isCorrect;
 }
 
-const QHash<QString, count> & InputEvent::substr(int size,bool allowSpace)
+const QHash<QString, count> & InputEvent::substr(int size,bool allowSpace) const
 {
 	if(isValid() && !m_substr.contains(size)){
 		QHash<QString, count> ret;
@@ -128,7 +144,7 @@ const QHash<QString, count> & InputEvent::substr(int size,bool allowSpace)
 	}
 	return(m_substr[size]);
 }
-const QHash<QString, count> & InputEvent::words()
+const QHash<QString, count> & InputEvent::words() const
 {
 	if(isValid() && m_words.isEmpty()){
 		int start = 0;
@@ -164,7 +180,7 @@ QDateTime InputEvent::date() const
 {
 	return QDateTime(m_datetime);
 }
-QByteArray InputEvent::keys() const
+QString InputEvent::keys() const
 {
 	return m_keys;
 }
@@ -190,6 +206,35 @@ int InputEvent::totalTime() const
 		return sum;
 	}
 	return 0;
+}
+double InputEvent::trueWordsPerMinute() const
+{
+	int time = totalTime();
+	int wordsCnt =0;
+	words();
+	foreach(count cnt, m_words){
+		wordsCnt += cnt.number;
+	}
+	return double(wordsCnt)/double(time)*60000;
+}
+double InputEvent::normalizedWordsPerMinute(int size) const
+{
+	int time = totalTime();
+	return (double(m_final.length())/5.0)/double(time)*60000;
+}
+double InputEvent::charactersPerMinute() const
+{
+	int time = totalTime();
+	return double(m_final.length())/double(time)*60000;
+}
+double InputEvent::percentCorrect() const
+{
+	int numErrors = 0;
+	foreach(bool error,m_finalErrors){
+		if(error)
+			numErrors++;
+	}
+	return 100-(double(numErrors)*100/m_final.length());
 }
 // InputEventManager
 
@@ -264,7 +309,7 @@ void InputEventManager::load()
 		 return;
 	}
 	QSqlQuery query;
-	if(!query.exec("CREATE TABLE events (eventTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, keys varchar, times varbinary)")){
+	if(!query.exec("CREATE TABLE IF NOT EXISTS events (eventTime datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, keys varchar, times varbinary)")){
 		QMessageBox::critical(0, qApp->tr("Failed"),
              qApp->tr("Error %1 when performing %2.\n").arg(query.lastError().text()).arg(query.lastQuery()),QMessageBox::Cancel);
 	//	return;
@@ -278,7 +323,7 @@ void InputEventManager::load()
 		return;
 	}
 	while(query.next()){
-		InputEvent evnt = InputEvent(query.value(1).toByteArray(),query.value(2).toByteArray(),query.value(0).toDateTime());
+		InputEvent evnt = InputEvent(query.value(1).toString(),query.value(2).toByteArray(),query.value(0).toDateTime());
 		list << evnt;
 	}
     setInputEvents(list);
@@ -340,6 +385,7 @@ QVariant InputEventModel::headerData(int section, Qt::Orientation orientation, i
 			case 3: return tr("NWPM");
 			case 4: return tr("CPM");
 			case 5: return tr("Size");
+			case 6: return tr("% Correct");
         }
     }
     return QAbstractTableModel::headerData(section, orientation, role);
@@ -359,6 +405,8 @@ QVariant InputEventModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case WordRole:
         return item.words().keys();
+	case ItemOffsetRole:
+		return index.row();
     case Qt::DisplayRole:
     case Qt::EditRole: {
         switch (index.column()) {
@@ -367,20 +415,15 @@ QVariant InputEventModel::data(const QModelIndex &index, int role) const
             case 1:
                 return item.date();
 			case 2:
-				time = item.totalTime();
-				words =0;
-				foreach(count cnt, item.words()){
-					words += cnt.number;
-				}
-				return double(words)/double(time)*60000;
+				return item.trueWordsPerMinute();
 			case 3:
-				time = item.totalTime();
-				return (double(item.str().length())/5.0)/double(time)*60000;
+				return item.normalizedWordsPerMinute();
 			case 4:
-				time = item.totalTime();
-				return double(item.str().length())/double(time)*60000;
+				return item.charactersPerMinute();
 			case 5:
 				return item.str().length();
+			case 6:
+				return item.percentCorrect();
 			}
 		}
     }
@@ -389,7 +432,7 @@ QVariant InputEventModel::data(const QModelIndex &index, int role) const
 
 int InputEventModel::columnCount(const QModelIndex &parent) const
 {
-    return (parent.isValid()) ? 0 : 6;
+    return (parent.isValid()) ? 0 : 7;
 }
 
 int InputEventModel::rowCount(const QModelIndex &parent) const
@@ -425,7 +468,13 @@ InputEventTreeModel::InputEventTreeModel(QAbstractItemModel *sourceModel, QObjec
 
 QVariant InputEventTreeModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
-    return sourceModel()->headerData(section, orientation, role);
+	switch(section){
+	case 0:
+		return "Substr";
+	case 1:
+		return "#";
+	}
+	return sourceModel()->headerData(section-2, orientation, role);
 }
 
 QVariant InputEventTreeModel::data(const QModelIndex &index, int role) const
@@ -436,18 +485,18 @@ QVariant InputEventTreeModel::data(const QModelIndex &index, int role) const
 			switch(index.column()){
 			case 0:
 				return m_substr[index.row()];
-			case 3:
-                return tr("%1 items").arg(rowCount(index.sibling(index.row(), 0)));
+			case 1:
+                return rowCount(index.sibling(index.row(), 0));
             }
 			return QVariant();
         }
     }
-    return QAbstractProxyModel::data(index, role);
+    return QAbstractProxyModel::data(index.sibling(index.row(),index.column()-2),role);
 }
 
 int InputEventTreeModel::columnCount(const QModelIndex &parent) const
 {
-	return 6;
+	return sourceModel()->columnCount(mapToSource(parent)) + 2;
 }
 
 int InputEventTreeModel::rowCount(const QModelIndex &parent) const

@@ -19,7 +19,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -28,15 +28,16 @@
     </property>
     <addaction name="actionOpen_Database"/>
     <addaction name="actionSave_Database"/>
+    <addaction name="actionClose"/>
     <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
      <string>&amp;Edit</string>
     </property>
-    <addaction name="actionCut"/>
     <addaction name="actionCopy"/>
     <addaction name="actionPaste"/>
+    <addaction name="actionCreate_Lesson"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -62,11 +63,6 @@
     <string>&amp;Paste</string>
    </property>
   </action>
-  <action name="actionCut">
-   <property name="text">
-    <string>Cu&amp;t</string>
-   </property>
-  </action>
   <action name="actionOpen_Database">
    <property name="text">
     <string>&amp;Open Database</string>
@@ -90,6 +86,16 @@
   <action name="actionExit">
    <property name="text">
     <string>E&amp;xit</string>
+   </property>
+  </action>
+  <action name="actionCreate_Lesson">
+   <property name="text">
+    <string>Create &amp;Lesson</string>
+   </property>
+  </action>
+  <action name="actionClose">
+   <property name="text">
+    <string>&amp;Close</string>
    </property>
   </action>
  </widget>
