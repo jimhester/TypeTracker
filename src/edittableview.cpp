@@ -52,27 +52,30 @@ void EditTableView::keyPressEvent(QKeyEvent *event)
     if ((event->key() == Qt::Key_Delete
         || event->key() == Qt::Key_Backspace)
         && model()) {
-        removeOne();
+        removeSelected();
     } else {
         QAbstractItemView::keyPressEvent(event);
     }
 }
-
-void EditTableView::removeOne()
+void EditTableView::removeSelected()
 {
-    if (!model() || !selectionModel())
-        return;
-    int row = currentIndex().row();
-    model()->removeRow(row, rootIndex());
-    QModelIndex idx = model()->index(row, 0, rootIndex());
-    if (!idx.isValid())
-        idx = model()->index(row - 1, 0, rootIndex());
-    selectionModel()->select(idx, QItemSelectionModel::SelectCurrent | QItemSelectionModel::Rows);
+	QItemSelection selection( selectionModel()->selection() );
+	 
+	QList<int> rows;
+	foreach( const QModelIndex & index, selection.indexes() ) {
+		rows.append( index.row() );
+	}
+	 
+	qSort( rows );
+	 
+	int prev = -1;
+	for( int i = rows.count() - 1; i >= 0; i -= 1 ) {
+		int current = rows[i];
+		if( current != prev ) {
+			model()->removeRows( current, 1 );
+			prev = current;
+		}
+	}
+	QModelIndex idx = model()->index(rows.first(), 0, rootIndex());
+	selectionModel()->setCurrentIndex(idx,QItemSelectionModel::SelectCurrent | QItemSelectionModel::Rows);
 }
-
-void EditTableView::removeAll()
-{
-    if (model())
-        model()->removeRows(0, model()->rowCount(rootIndex()), rootIndex());
-}
-

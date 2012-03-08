@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GhostDock</class>
+ <widget class="QDockWidget" name="GhostDock">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>193</width>
+    <height>160</height>
+   </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="windowTitle">
+   <string>Ghost Options</string>
+  </property>
+  <widget class="QWidget" name="Contents">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <layout class="QGridLayout" name="gridLayout">
+    <item row="2" column="1">
+     <widget class="QDoubleSpinBox" name="multSpin">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="0">
+     <widget class="QPushButton" name="pushButton">
+      <property name="text">
+       <string> Reset Ghost</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QCheckBox" name="speedCheck">
+      <property name="text">
+       <string>Multiplier</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QDoubleSpinBox" name="speedSpin">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QRadioButton" name="speedButton">
+      <property name="text">
+       <string>Constant Speed</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QComboBox" name="prevCombo">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0">
+     <widget class="QRadioButton" name="prevButton">
+      <property name="text">
+       <string>Previous Events</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="0">
+     <widget class="QLabel" name="finalWpmDesc">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Final WPM:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1">
+     <widget class="QLabel" name="finalWpm">
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>prevButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>prevCombo</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>71</x>
+     <y>48</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>183</x>
+     <y>50</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>speedButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>speedSpin</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>83</x>
+     <y>74</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>183</x>
+     <y>76</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>speedCheck</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>multSpin</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>47</x>
+     <y>100</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>183</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pushButton</sender>
+   <signal>clicked()</signal>
+   <receiver>GhostDock</receiver>
+   <slot>resetGhost()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>108</x>
+     <y>150</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>192</x>
+     <y>159</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>speedCheck</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>finalWpmDesc</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>76</x>
+     <y>92</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>54</x>
+     <y>114</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>prevButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>GhostDock</receiver>
+   <slot>populateComboBox(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>39</x>
+     <y>37</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>37</x>
+     <y>31</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>speedButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>GhostDock</receiver>
+   <slot>setConstantSpeed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>83</x>
+     <y>60</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>83</x>
+     <y>82</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>resetGhost()</slot>
+  <slot>showFinalWPM()</slot>
+  <slot>populateComboBox(bool)</slot>
+  <slot>setConstantSpeed()</slot>
+ </slots>
+</ui>

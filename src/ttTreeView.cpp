@@ -11,7 +11,7 @@ void ttTreeView::setModel( QAbstractItemModel * model )
             this, SLOT(adaptColumns(const QModelIndex &, const QModelIndex&) ) );
 	connect(this, SIGNAL(expanded(const QModelIndex &)), this, SLOT(adaptColumns(const QModelIndex &)));
 	QTreeView::setModel(model);
-	for(int i = 0;i<2;i++){
+	for(int i = 0;i<4;i++){
 		resizeColumnToContents(i);
 	}
 }
@@ -27,7 +27,7 @@ void ttTreeView::adaptColumns (const QModelIndex & topleft, const QModelIndex& b
 }
 void ttTreeView::adaptColumns(const QModelIndex & index)
 {
-	for(int i = 3;i<model()->columnCount();i++){
+	for(int i = 5;i<model()->columnCount();i++){
 		resizeColumnToContents(i);
 	}
 }

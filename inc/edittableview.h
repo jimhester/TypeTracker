@@ -53,8 +53,7 @@ public:
     void keyPressEvent(QKeyEvent *event);
 
 public slots:
-    void removeOne();
-    void removeAll();
+	void removeSelected();
 };
 
 #endif // EDITTABLEVIEW_H

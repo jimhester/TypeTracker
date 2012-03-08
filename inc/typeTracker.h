@@ -28,7 +28,7 @@ public:
 	//~TypeTracker();
 private slots:
 	void endInputEvent();
-	void createSubstrAnalysis(const QModelIndexList& sel);
+	void createAnalysis();
 	void createLesson();
 	void closeTab(int);
 	//void copy();
@@ -38,10 +38,14 @@ protected:
 	//bool TypeTracker::eventFilter(QObject *object, QEvent *event);
 	void keyPressEvent( QKeyEvent *event);
 	void contextMenuEvent(QContextMenuEvent *event);
+	void closeEvent(QCloseEvent *event);
 private:
 	void createActions();
 	bool createConnection();
 	void getEvents();
+	void readSettings();
+	void writeSettings();
+
 	EditTableView* setupTableView(const QString &title);
 	ttTreeView* setupTreeView(const QString &title);
 

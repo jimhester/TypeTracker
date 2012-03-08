@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QAbstractTableModel>
 #include <QAbstractProxyModel>
+#include <QSortFilterProxyModel>
 #include <QTimer>
 #include <qVariant>
 #include <QStringList>
@@ -20,8 +21,8 @@ struct count{
 };
 
 Q_DECLARE_METATYPE(count)
-Q_DECLARE_TYPEINFO(count,Q_PRIMITIVE_TYPE);
-//int id = qRegisterMetaType<count>();
+typedef QHash<QString,count> CountHash;
+Q_DECLARE_METATYPE(CountHash)
 
 class InputEvent
 {
@@ -33,6 +34,8 @@ public:
 	~InputEvent(void);
 	void addKey(const QString & key, int msec,bool isCorrect=true);
 	void setDate(const QDateTime &datetime);
+	static void setValidator(const QRegExp &regex);
+	static QRegExp validator();
 	void clear();
 	bool isEmpty() const;
 	bool isValid() const;
@@ -45,26 +48,41 @@ public:
 	double normalizedWordsPerMinute(int size=5) const;
 	double charactersPerMinute() const;
 	double percentCorrect() const;
-	const QHash<QString, count> & substr(int size=1,bool allowSpace=true) const;
-	const QHash<QString, count> & words() const;
+	const CountHash& substr(int size=1,bool allowSpace=true) const;
+	const CountHash& words() const;
+	bool operator==(const InputEvent& event);
 
 private:
 	void process() const;
 
-	mutable bool m_processed;
+	enum Statistics {
+		TotalTime,
+		TrueWordsPerMinute,
+		NormalizedWordsPerMinute,
+		CharactersPerMinute,
+		PercentCorrect
+	};
+
+	mutable QVector<QVariant> m_statCache;
+
 	QString m_keys;
 	QVector<int> m_times;
 	QVector<bool> m_error;
 	QDateTime m_datetime;
+
+	mutable bool m_processed;
 	mutable QString m_final;
 	mutable QVector<bool> m_finalErrors;
 	mutable QVector<int> m_finalTimes;
-	mutable QHash<int, QHash<QString,count> > m_substr;
-	mutable QHash<QString,count> m_words;
+	mutable QHash<int, CountHash> m_substr;
+	mutable CountHash m_words;
+
+	static QRegExp m_regexp;
 };
 
 class InputEventModel;
 class InputEventTreeModel;
+class InputEventManager;
 class InputEventManager : public QObject
 {
     Q_OBJECT
@@ -86,9 +104,11 @@ public:
     QList<InputEvent> InputEvents() const;
     void setInputEvents(const QList<InputEvent> &InputEvents);
 
-	//TODO
+	QList<int> similarEvents(const InputEvent &evnt);
+
     InputEventModel *inputEventModel() const;
-    //InputEventTreeModel *inputEventTreeModel() const;
+
+	static InputEventManager* instance();
 
 public slots:
     void clear();
@@ -98,6 +118,8 @@ private slots:
 
 private:
     void load();
+	void insertInputEvent(const InputEvent &item);
+	QString hashInputEvent(const InputEvent &item);
 
     int m_InputEventLimit;
     QTimer m_expiredTimer;
@@ -105,6 +127,12 @@ private:
 
     InputEventModel *m_InputEventModel;
 	InputEventTreeModel *m_InputEventTreeModel;
+
+	QHash<QString,QList<int> > m_similarity;
+
+	InputEventManager(const InputEventManager&);
+	InputEventManager& operator=(const InputEventManager &);
+	static InputEventManager* m_inputEventManager;
 };
 
 class InputEventModel : public QAbstractTableModel
@@ -169,6 +197,21 @@ private:
 //    int sourceDateRow(int row) const;
     mutable QList< QList<int> > m_sourceRowMap;
 	mutable QStringList m_substr;
+	mutable CountHash m_substrSums;
 	int m_substrLength;
 
+};
+
+//Filters selected rows
+class InputEventFilterModel : public QSortFilterProxyModel
+{
+	Q_OBJECT
+
+public:
+	InputEventFilterModel(QAbstractItemModel *sourceModel,QList<int> rows,QObject *parent = 0);
+	bool removeRows ( int row, int count, const QModelIndex & parent = QModelIndex() );
+protected:
+	bool filterAcceptsRow(int sourceRow, const QModelIndex & source_parent) const;
+private:
+	QList<int> m_rows;
 };
