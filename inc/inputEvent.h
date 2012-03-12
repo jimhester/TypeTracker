@@ -104,7 +104,7 @@ public:
     QList<InputEvent> InputEvents() const;
     void setInputEvents(const QList<InputEvent> &InputEvents);
 
-	QList<int> similarEvents(const InputEvent &evnt);
+	QList<int> InputEventManager::similarEvents(const InputEvent &evnt,double difference=0.0);
 
     InputEventModel *inputEventModel() const;
 

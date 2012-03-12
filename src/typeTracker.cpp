@@ -167,10 +167,6 @@ void TypeTracker::contextMenuEvent(QContextMenuEvent *event)
 	menu.addAction(actionCreate_Analysis);
 	menu.exec(event->globalPos());
 }
-//void TypeTracker::copy()
-//{
-////	QWidget * test = tab->currentWidget();
-//}
 void TypeTracker::createAnalysis()
 {
 	QList<int> rows;
@@ -181,24 +177,29 @@ void TypeTracker::createAnalysis()
 				rows << row;
 			}
 		}
-		InputEventFilterModel * filter = new InputEventFilterModel(m_manager->inputEventModel(),rows,this);
-		InputEventTreeModel * treeModel = new InputEventTreeModel(filter,this);
-		QSortFilterProxyModel *sort = new QSortFilterProxyModel(this);
-		sort->setSourceModel(treeModel);
-		ttTreeView* tree = new ttTreeView(this);
-		tree->setSortingEnabled(true);
-		tree->setModel(sort);
-		tab->addTab(tree,"Analysis");
+		if(!rows.isEmpty()){
+			InputEventFilterModel * filter = new InputEventFilterModel(m_manager->inputEventModel(),rows,this);
+			InputEventTreeModel * treeModel = new InputEventTreeModel(filter,this);
+			QSortFilterProxyModel *sort = new QSortFilterProxyModel(this);
+			sort->setSourceModel(treeModel);
+			ttTreeView* tree = new ttTreeView(this);
+			tree->setSortingEnabled(true);
+			tree->setModel(sort);
+			tab->addTab(tree,"Analysis");
+		}
 	}
 }
 void TypeTracker::createLesson()
 {
 	if(QAbstractItemView* view = tab->currentWidget()->findChild<QAbstractItemView*>()){
-		int row = view->selectionModel()->selectedIndexes().first().data(InputEventModel::ItemOffsetRole).toInt();
-		InputEvent evnt = m_manager->InputEvents().at(row);
-		InputLesson* lesson = new InputLesson(evnt,this);
-		lesson->setManager(m_manager);
-		tab->addTab(lesson,"Lesson");
+		QModelIndexList indexes = view->selectionModel()->selectedIndexes();
+		if(!indexes.isEmpty()){
+			int row = indexes.first().data(InputEventModel::ItemOffsetRole).toInt();
+			InputEvent evnt = m_manager->InputEvents().at(row);
+			InputLesson* lesson = new InputLesson(evnt,this);
+			lesson->setManager(m_manager);
+			tab->addTab(lesson,"Lesson");
+		}
 	}
 }
 void TypeTracker::closeTab(int idx)

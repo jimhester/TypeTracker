@@ -109,6 +109,7 @@ void InputLesson::changeCursorPosition()
 			//qDebug() << m_inputEvent.keys();
 			m_manager->addInputEvent(m_inputEvent);
 			m_inputEvent.clear();
+			m_ghost->stop();
 		}
 	}
 	m_cursor->clearSelection();
@@ -239,8 +240,11 @@ GhostDock::GhostDock(InputEventGhost* ghost, QWidget* parent)
 void GhostDock::populateComboBox(bool enabled)
 {
 	if(enabled){
-		QList<int> idxs = InputEventManager::instance()->similarEvents(*m_ghost->event());
-		qDebug() << idxs;
+		QList<int> idxs = InputEventManager::instance()->similarEvents(*m_ghost->event(),0.05);
+		QList<InputEvent> events = InputEventManager::instance()->InputEvents();
+		foreach(int idx, idxs){
+			qDebug() << events.at(idx).str().left(5);
+		}
 	}
 }
 	

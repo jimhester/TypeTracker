@@ -159,7 +159,10 @@ const CountHash& InputEvent::words() const
 				start++;
 			}
 			int end = start+1;
-			while(end < m_final.length() && m_final.at(end).isLetterOrNumber()){
+			while(end < m_final.length() && (m_final.at(end).isLetterOrNumber()
+				//Deal with apostrophies
+				|| (end < m_final.length()-1 && m_final.at(end) == '\''
+				&& m_final.at(end+1).isLetterOrNumber()))){
 				end++;
 			}
 			QString word = m_final.mid(start,end-start).toLower();
@@ -306,9 +309,6 @@ void InputEventManager::setInputEvents(const QList<InputEvent> &InputEvents)
 	m_InputEvents.clear();
 	m_similarity.clear();
     m_InputEvents = InputEvents;
-	for(int i = 0;i<m_InputEvents.size();i++){
-		m_similarity[hashInputEvent(m_InputEvents.at(i))] << i;
-	}
 	emit InputEventReset();
 }
 
@@ -317,14 +317,9 @@ InputEventModel *InputEventManager::inputEventModel() const
     return m_InputEventModel;
 }
 
-//InputEventTreeModel *InputEventManager::inputEventTreeModel() const
-//{
-//    return m_InputEventTreeModel;
-//}
-
 void InputEventManager::addInputEvent(const InputEvent &item)
 {
-	m_similarity[hashInputEvent(item)] << m_InputEvents.size();
+	m_similarity.clear();
     m_InputEvents.append(item);
     emit entryAdded(item);
 }
@@ -389,8 +384,36 @@ void InputEventManager::save()
 		insertInputEvent(item);
 	}
 }
-QList<int> InputEventManager::similarEvents(const InputEvent &evnt)
+QList<int> InputEventManager::similarEvents(const InputEvent &evnt,double difference)
 {
+	if(!m_similarity.contains(hashInputEvent(evnt))){
+		QList<int> similar;
+		count empty;
+		empty.number=0;
+		CountHash words = evnt.words();
+		int totalWords = 0;
+		foreach(count cnt,words){
+			totalWords += cnt.number;
+		}
+		for(int i = 0;i<m_InputEvents.size();i++){
+			CountHash tWords = m_InputEvents.at(i).words();
+			QHashIterator<QString,count> itr(tWords);
+			long pSum = 0;
+			int numWords = 0;
+			while(itr.hasNext()){
+				itr.next();
+				numWords+=itr.value().number;
+				//Pythagorean sum
+				long diff = (words.value(itr.key(),empty).number - itr.value().number);
+				pSum+= diff*diff;
+			}
+			double distance = sqrt(double(pSum));
+			if(distance/qMin(totalWords,numWords) <= difference){
+				similar << i;
+			}
+		}
+		m_similarity[hashInputEvent(evnt)]=similar;
+	}
 	return m_similarity.value(hashInputEvent(evnt));
 }
 QString InputEventManager::hashInputEvent(const InputEvent &item)
@@ -426,8 +449,8 @@ InputEventModel::InputEventModel(InputEventManager *InputEvent, QObject *parent)
 
     connect(m_InputEvent, SIGNAL(entryAdded(InputEvent)),
             this, SLOT(entryAdded()));
-    connect(m_InputEvent, SIGNAL(entryUpdated(int)),
-            this, SLOT(entryUpdated(int)));
+    //connect(m_InputEvent, SIGNAL(entryUpdated(int)),
+    //        this, SLOT(entryUpdated(int)));
 }
 
 void InputEventModel::InputEventReset()
