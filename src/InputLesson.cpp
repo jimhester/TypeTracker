@@ -100,7 +100,11 @@ void InputLesson::changeCursorPosition()
 			setSelectedTextColor(Qt::black,m_cursor);
 		} else {
 			m_inputEvent.addKey(cursor.selectedText(),msec_elapsed,false);
-			setSelectedTextColor(Qt::red,m_cursor);
+			if(m_cursor->selectedText() == " "){
+				setSelectedTextColor(Qt::red,m_cursor,true);
+			} else{
+				setSelectedTextColor(Qt::red,m_cursor);
+			}
 		}
 	}
 	if(m_cursor->atBlockEnd()){ //True End is newline after Block, only 1 block though
@@ -115,9 +119,13 @@ void InputLesson::changeCursorPosition()
 	m_cursor->clearSelection();
 	m_timer->start(m_timeout);
 }
-void InputLesson::setSelectedTextColor(QColor color, QTextCursor* cursor)
+void InputLesson::setSelectedTextColor(QColor color, QTextCursor* cursor,bool background)
 {
 	QTextCharFormat fmt;
+	fmt.setBackground(Qt::white);
+	if(background) {
+		fmt.setBackground(color);
+	}
 	fmt.setForeground(color);
 	cursor->mergeCharFormat(fmt);
 }
@@ -230,7 +238,6 @@ GhostDock::GhostDock(InputEventGhost* ghost, QWidget* parent)
 {
 	setupUi(this);
 	setAllowedAreas(Qt::RightDockWidgetArea);
-	//qDebug() << QApplication::topLevelWidgets();
 	foreach(QWidget* test, QApplication::topLevelWidgets()){
 		if(QMainWindow* main = qobject_cast<QMainWindow*>(test)){
 			main->addDockWidget(Qt::RightDockWidgetArea,this);
@@ -246,5 +253,3 @@ void GhostDock::populateComboBox(bool enabled)
 			qDebug() << events.at(idx).str().left(5);
 		}
 	}
-}
-

@@ -22,9 +22,9 @@ class InputLesson :
   InputLesson(const InputEvent &event, QWidget* parent = 0);
   void setManager(InputEventManager* manager);
 
-  protected:
-  //      void keyPressEvent(QKeyEvent *event);
-  //      void mouseReleaseEvent( QMouseEvent * e);
+private:
+	void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
+	void InputLesson::addGhost();
 
   ~InputLesson(void);
 
