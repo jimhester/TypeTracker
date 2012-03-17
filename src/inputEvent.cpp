@@ -4,7 +4,7 @@
 #include <QMessageBox>
 #include <QVariant>
 #include <QStringList>
-#include "InputEvent.h"
+#include "inputEvent.h"
 
 QRegExp InputEvent::m_regexp = QRegExp("(\\s*\\w+\\b){5}");
 

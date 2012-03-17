@@ -1,5 +1,5 @@
 #include "ttEdit.h"
-#include <qkeyevent>
+#include <QKeyEvent>
 
 void ttEdit::keyPressEvent(QKeyEvent *event){
 	QTextEdit::keyPressEvent(event);

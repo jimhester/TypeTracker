@@ -10,90 +10,92 @@ class QTextCursor;
 class QTime;
 class InputEventGhost;
 class InputLesson :
-	public QWidget
+  public QWidget
 {
-	Q_OBJECT
+  Q_OBJECT
 
-public slots:
-	void changeCursorPosition();
-	void timeout();
-public:
-	InputLesson(const InputEvent &event, QWidget* parent = 0);
-	void setManager(InputEventManager* manager);
-protected:
-//	void keyPressEvent(QKeyEvent *event);
-//	void mouseReleaseEvent( QMouseEvent * e);
+    public slots:
+  void changeCursorPosition();
+  void timeout();
 
-	~InputLesson(void);
+  public:
+  InputLesson(const InputEvent &event, QWidget* parent = 0);
+  void setManager(InputEventManager* manager);
 
-private:
-	void setSelectedTextColor(QColor color, QTextCursor* cursor);
-	void InputLesson::addGhost();
+  protected:
+  //      void keyPressEvent(QKeyEvent *event);
+  //      void mouseReleaseEvent( QMouseEvent * e);
 
-	QTime* m_time;
-	QTimer* m_timer;
-	
-	int m_timeout;
-	int m_location;
-	QTextCursor* m_cursor;
-	InputEvent m_baseEvent;
-	InputEvent m_inputEvent;
-	QTextEdit* m_lesson;
-	QTextEdit* m_input;
+  ~InputLesson(void);
 
-	InputEventGhost* m_ghost;
-	InputEventManager* m_manager;
+  private:
+  void setSelectedTextColor(QColor color, QTextCursor* cursor);
+  void addGhost();
+
+  QTime* m_time;
+  QTimer* m_timer;
+
+  int m_timeout;
+  int m_location;
+  QTextCursor* m_cursor;
+  InputEvent m_baseEvent;
+  InputEvent m_inputEvent;
+  QTextEdit* m_lesson;
+  QTextEdit* m_input;
+
+  InputEventGhost* m_ghost;
+  InputEventManager* m_manager;
 };
 
 class GhostDock;
 class InputEventGhost : public QTextEdit 
 {
 
-	Q_OBJECT
+  Q_OBJECT
 
-public:
-	InputEventGhost(const InputEvent &event, QWidget* parent = 0);
-	~InputEventGhost();
+  public:
+    InputEventGhost(const InputEvent &event, QWidget* parent = 0);
+    ~InputEventGhost();
 
-	void start();
-	void pause();
-	void stop();
-	void rewind(int msec);
+    void start();
+    void pause();
+    void stop();
+    void rewind(int msec);
 
-	bool isActive() const;
-	bool isComplete() const;
+    bool isActive() const;
+    bool isComplete() const;
 
-	void setEvent(const InputEvent& event);
-	const InputEvent* event() const;
+    void setEvent(const InputEvent& event);
+    const InputEvent* event() const;
 
-private slots:
-	void nextKey();
+    private slots:
+      void nextKey();
 
-private:
-	void setupDock();
+  private:
+    void setupDock();
 
-	InputEvent m_event;
-	QTextCursor* m_cursor;
-	QTimer* m_timer;
-	QVector<int> m_times;
-	QString m_text;
-	int m_location;
-	bool m_running;
-	GhostDock* m_dock;
+    InputEvent m_event;
+    QTextCursor* m_cursor;
+    QTimer* m_timer;
+    QVector<int> m_times;
+    QString m_text;
+    int m_location;
+    bool m_running;
+    GhostDock* m_dock;
 };
 class GhostDock : public QDockWidget , private Ui::GhostDock
 {
-	Q_OBJECT
+  Q_OBJECT
 
-friend InputEventGhost;
+    //friend InputEventGhost;
 
-public slots:
-	void populateComboBox(bool enabled);
+  public slots:
+  void populateComboBox(bool enabled);
 
-public:
-	GhostDock(InputEventGhost* ghost, QWidget* parent = 0);
+  public:
+  GhostDock(InputEventGhost* ghost, QWidget* parent = 0);
 
-private:
+  private:
 
-	InputEventGhost* m_ghost;
+  InputEventGhost* m_ghost;
 };

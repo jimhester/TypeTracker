@@ -247,4 +247,4 @@ void GhostDock::populateComboBox(bool enabled)
 		}
 	}
 }
-	
+

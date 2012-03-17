@@ -31,3 +31,4 @@ void ttTreeView::adaptColumns(const QModelIndex & index)
 		resizeColumnToContents(i);
 	}
 }
+

@@ -2,7 +2,7 @@
 #define TTEDIT_H
 
 #include <QTextEdit>
-#include <qdebug>
+#include <QDebug>
 
 class QPlainTextEdit;
 
