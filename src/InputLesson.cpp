@@ -253,3 +253,4 @@ void GhostDock::populateComboBox(bool enabled)
 			qDebug() << events.at(idx).str().left(5);
 		}
 	}
+}

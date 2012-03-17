@@ -7,7 +7,7 @@
 #include "ttTreeView.h"
 #include "../ui_typeTracker.h"
 
-#if Q_OS_WIN
+#ifdef Q_WS_WIN
 #include <windows.h>
 #endif
 
@@ -53,7 +53,7 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
     ttTreeView* setupTreeView(const QString &title);
 
     static QWidget* app;
-#if Q_OS_WIN
+#ifdef Q_WS_WIN
     friend LRESULT CALLBACK HookProc(int nCode, WPARAM wParam, LPARAM lParam);
 #endif
 
@@ -74,7 +74,7 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
     QAction* a_remove;
 };
 
-#if Q_OS_WIN
+#ifdef Q_WS_WIN
 LRESULT CALLBACK HookProc(int nCode, WPARAM wParam, LPARAM lParam);
 #endif
 

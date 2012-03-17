@@ -16,7 +16,7 @@
 #include "InputLesson.h"
 #include <qwt_slider.h>
 
-#ifdef Q_OS_WIN 
+#ifdef Q_WS_WIN 
 #include <qt_windows.h>
 #include <windows.h>
 
@@ -77,7 +77,7 @@ QWidget* TypeTracker::app = 0;
   //connect(eventTable, SIGNAL(selectionRightClicked(const QModelIndexList &)),this,SLOT(createSubstrAnalysis(const QModelIndexList &)));
 
   app = this;
-#if Q_OS_WIN
+#ifdef Q_WS_WIN
   if (SetWindowsHookEx(WH_KEYBOARD_LL, HookProc, qWinAppInst(), NULL) == 0)
     qDebug() << "Hook failed for application instance" << qWinAppInst() << "with error:" << GetLastError();
 #endif

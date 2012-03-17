@@ -24,13 +24,9 @@ class InputLesson :
 
 private:
 	void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
-	void InputLesson::addGhost();
+	void addGhost();
 
   ~InputLesson(void);
-
-  private:
-  void setSelectedTextColor(QColor color, QTextCursor* cursor);
-  void addGhost();
 
   QTime* m_time;
   QTimer* m_timer;
