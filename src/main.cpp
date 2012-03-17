@@ -1,6 +1,6 @@
 #include <QApplication>
 
-#include "typeTracker.h"
+#include "TypeTracker.h"
 
 int main(int argc, char *argv[])
 {
