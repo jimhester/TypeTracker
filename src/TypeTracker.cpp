@@ -53,10 +53,13 @@ QWidget* TypeTracker::app = 0;
   connect(timeout, SIGNAL(timeout()),this,SLOT(endInputEvent()));
 
   m_manager = new InputEventManager(this);
+  m_manager->setSimilarityCutoff(.05);
 
   tab = new QTabWidget(this);
   setCentralWidget(tab);
   eventTable = setupTableView(QObject::tr("Input Events"));
+  ttTreeView* lessonView = setupLessonTreeView(QObject::tr("Lessons"));
+  tab->addTab(lessonView,"Lessons");
 
   //QVBoxLayout *layout = new QVBoxLayout;
   //m_eventTree = setupTreeView(QObject::tr("Substring"));
@@ -67,7 +70,7 @@ QWidget* TypeTracker::app = 0;
   //layout->addWidget(m_eventTree);
   //layout->addWidget(slider);
   //connect(slider, SIGNAL(valueChanged(double)),m_treeModel,SLOT(setSubstrLength(double)));
-
+  
   tab->addTab(eventTable,"Events");
   tab->setDocumentMode(true);
   tab->setTabsClosable(true);
@@ -83,6 +86,26 @@ QWidget* TypeTracker::app = 0;
 #endif
   createActions();
 }
+void TypeTracker::generateLessons()
+{
+  typedef QPair<QString,QList<int> > simPair;
+  QList<InputEvent> events = m_manager->InputEvents();
+  QMap<int,simPair> similarities;
+  foreach(InputEvent event,events){
+    QList<int> similar = m_manager->similarEvents(event);
+    foreach(int sim,similar){
+      if(!similarities.contains(sim) || 
+        similarities.value(sim).second.length() < similar.length()){
+        similarities[sim]=simPair(event.str(),similar);
+      }
+    }
+  }
+  foreach(simPair val,similarities){
+    if(!m_lessons.contains(val.first) && val.second.length() > 1)
+      m_lessons.append(val.first);
+  }
+}
+
 
 ttTreeView* TypeTracker::setupTreeView(const QString &title)
 {
@@ -106,6 +129,21 @@ EditTableView* TypeTracker::setupTableView(const QString &title)
   view->setModel(proxyModel);
   view->setWindowTitle(title);
   view->setSortingEnabled(true);
+
+  return view;
+}
+ttTreeView* TypeTracker::setupLessonTreeView(const QString &title)
+{
+  generateLessons();
+  ttTreeView* view = new ttTreeView(this);
+  InputEventModel * model = m_manager->inputEventModel();
+  InputEventLessonModel *lesson = new InputEventLessonModel(model,m_manager,this,m_lessons);
+  QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(this);
+  proxyModel->setSourceModel(lesson);
+  view->setModel(proxyModel);
+  view->setWindowTitle(title);
+  view->setSortingEnabled(true);
+  view->setColumnWidth(0,20);
   return view;
 }
 void TypeTracker::keyPressEvent(QKeyEvent *event)

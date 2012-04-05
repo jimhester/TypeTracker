@@ -39,7 +39,7 @@
 **
 ****************************************************************************/
 
-#include "edittableview.h"
+#include "EditTableView.h"
 #include <QtGui/QKeyEvent>
 
 EditTableView::EditTableView(QWidget *parent)

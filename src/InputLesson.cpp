@@ -247,7 +247,7 @@ GhostDock::GhostDock(InputEventGhost* ghost, QWidget* parent)
 void GhostDock::populateComboBox(bool enabled)
 {
 	if(enabled){
-		QList<int> idxs = InputEventManager::instance()->similarEvents(*m_ghost->event(),0.05);
+		QList<int> idxs = InputEventManager::instance()->similarEvents(*m_ghost->event());
 		QList<InputEvent> events = InputEventManager::instance()->InputEvents();
 		foreach(int idx, idxs){
 			qDebug() << events.at(idx).str().left(5);

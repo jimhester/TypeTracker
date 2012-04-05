@@ -8,6 +8,32 @@
 
 QRegExp InputEvent::m_regexp = QRegExp("(\\s*\\w+\\b){5}");
 
+count::count()
+{
+  error=0;
+  number=0;
+  totalTime=0;
+}
+count& count::operator=(const count& rhs)
+{
+  if(&rhs != this){
+    error=rhs.error;
+    number=rhs.number;
+    totalTime=rhs.totalTime;
+  }
+  return *this;
+}
+count& count::operator+=(const count& rhs)
+{
+  error+=rhs.error;
+  number+=rhs.number;
+  totalTime+=rhs.totalTime;
+  return *this;
+}
+ const count count::operator+(const count& rhs) const
+ {
+   return count(*this) += rhs;
+ }
 InputEvent::InputEvent(void)
 {
   m_processed = false;
@@ -59,8 +85,6 @@ InputEvent::~InputEvent(void)
 void InputEvent::process() const
 {
   if(!m_processed){
-    m_statCache.clear();
-    m_statCache.resize(5);
     m_final.clear();
     m_finalErrors.clear();
     m_finalTimes.clear();
@@ -84,6 +108,11 @@ void InputEvent::process() const
     m_final = m_final.left(finalItr);
     m_finalTimes = m_finalTimes.mid(0,finalItr);
     m_finalErrors = m_finalErrors.mid(0,finalItr);
+    m_counts.number = m_final.size();
+    for(int i = 0;i<m_final.size();i++){
+      m_counts.error += m_finalErrors.at(i);
+      m_counts.totalTime += m_finalTimes.at(i);
+    }
   }
   m_processed = true;
 }
@@ -153,6 +182,7 @@ const CountHash& InputEvent::substr(int size,bool allowSpace) const
 const CountHash& InputEvent::words() const
 {
   if(isValid() && m_words.isEmpty()){
+    int numWords = 0;
     int start = 0;
     while(start < m_final.length()-1){
       while(!m_final.at(start).isLetterOrNumber() && start < m_final.length()-1){
@@ -180,7 +210,9 @@ const CountHash& InputEvent::words() const
       m_words[word].totalTime+=time;
       m_words[word].number++;
       start=end;
+      numWords++;
     }
+    m_numWords = numWords;
   }
   return(m_words);
 }
@@ -205,68 +237,31 @@ QString InputEvent::str() const
 {
   return QString(m_final);
 }
-int InputEvent::totalTime() const
-{
-  if(m_processed){
-    if(m_statCache[TotalTime].isNull()){
-      int sum=0;
-      foreach(int time,m_finalTimes){
-        sum+=time;
-      }
-      m_statCache[TotalTime] = sum;
-    }
-    return m_statCache[TotalTime].toInt();
-  }
-  return 0;
-}
 double InputEvent::trueWordsPerMinute() const
 {
   if(!m_processed)
     return 0;
-  if(m_statCache[TrueWordsPerMinute].isNull()){
-    int time = totalTime();
-    int wordsCnt =0;
+  if(m_numWords == 0)
     words();
-    foreach(count cnt, m_words){
-      wordsCnt += cnt.number;
-    }
-    m_statCache[TrueWordsPerMinute] = double(wordsCnt)/double(time)*60000;
-  }
-  return m_statCache[TrueWordsPerMinute].toDouble();
+  return (double)m_numWords/m_counts.totalTime*60000;
 }
 double InputEvent::normalizedWordsPerMinute(int size) const
 {
   if(!m_processed)
     return 0;
-  if(m_statCache[NormalizedWordsPerMinute].isNull()){
-    int time = totalTime();
-    m_statCache[NormalizedWordsPerMinute] = (double(m_final.length())/size)/double(time)*60000;
-  }
-  return m_statCache[NormalizedWordsPerMinute].toDouble();
+  return (double)m_counts.number/m_counts.totalTime*60000/size;
 }
 double InputEvent::charactersPerMinute() const
 {
   if(!m_processed)
     return 0;
-  if(m_statCache[CharactersPerMinute].isNull()){
-    int time = totalTime();
-    m_statCache[CharactersPerMinute] = double(m_final.length())/double(time)*60000;
-  }
-  return m_statCache[CharactersPerMinute].toDouble();
+  return (double)m_counts.number/m_counts.totalTime*60000;
 }
 double InputEvent::percentCorrect() const
 {
   if(!m_processed)
     return 0;
-  if(m_statCache[PercentCorrect].isNull()){
-    int numErrors = 0;
-    foreach(bool error,m_finalErrors){
-      if(error)
-        numErrors++;
-    }
-    m_statCache[PercentCorrect] = 100-(double(numErrors)*100/m_final.length());
-  }
-  return m_statCache[PercentCorrect].toDouble();
+  return 100-(double)m_counts.error/m_counts.number*100;
 }
 void InputEvent::setValidator(const QRegExp &regexp)
 {
@@ -281,6 +276,10 @@ bool InputEvent::operator==(const InputEvent& event)
 {
   return(m_datetime == event.m_datetime && m_keys == event.m_keys && m_times == event.m_times);
 }
+count InputEvent::counts() const
+{
+  return m_counts;
+}
 ////////////////////////////////////////////////////////////////////////////////
 // InputEventManager
 ////////////////////////////////////////////////////////////////////////////////
@@ -288,6 +287,7 @@ bool InputEvent::operator==(const InputEvent& event)
   InputEventManager::InputEventManager(QObject *parent)
   : QObject(parent)
     , m_InputEventModel(0)
+    , m_similarityCutoff(0)
 {
   load();
 
@@ -307,11 +307,16 @@ QList<InputEvent> InputEventManager::InputEvents() const
 void InputEventManager::setInputEvents(const QList<InputEvent> &InputEvents)
 {
   m_InputEvents.clear();
-  m_similarity.clear();
+  m_similarityCache.clear();
   m_InputEvents = InputEvents;
   emit InputEventReset();
 }
 
+void InputEventManager::setSimilarityCutoff(double similarityCutoff)
+{
+  m_similarityCache.clear();
+  m_similarityCutoff = similarityCutoff;
+}
 InputEventModel *InputEventManager::inputEventModel() const
 {
   return m_InputEventModel;
@@ -319,7 +324,7 @@ InputEventModel *InputEventManager::inputEventModel() const
 
 void InputEventManager::addInputEvent(const InputEvent &item)
 {
-  m_similarity.clear();
+  m_similarityCache.clear();
   m_InputEvents.append(item);
   emit entryAdded(item);
 }
@@ -341,6 +346,7 @@ void InputEventManager::insertInputEvent(const InputEvent &item)
 void InputEventManager::clear()
 {
   m_InputEvents.clear();
+  m_similarityCache.clear();
   InputEventReset();
 }
 
@@ -384,9 +390,13 @@ void InputEventManager::save()
     insertInputEvent(item);
   }
 }
-QList<int> InputEventManager::similarEvents(const InputEvent &evnt,double difference)
+QList<int> InputEventManager::similarEvents(const QString &str)
 {
-  if(!m_similarity.contains(hashInputEvent(evnt))){
+  return similarEvents(InputEvent(str,0));
+}
+QList<int> InputEventManager::similarEvents(const InputEvent &evnt)
+{
+  if(!m_similarityCache.contains(hashInputEvent(evnt))){
     QList<int> similar;
     count empty;
     empty.number=0;
@@ -408,13 +418,13 @@ QList<int> InputEventManager::similarEvents(const InputEvent &evnt,double differ
         pSum+= diff*diff;
       }
       double distance = sqrt(double(pSum));
-      if(distance/qMin(totalWords,numWords) <= difference){
+      if(distance/qMin(totalWords,numWords) <= m_similarityCutoff){
         similar << i;
       }
     }
-    m_similarity[hashInputEvent(evnt)]=similar;
+    m_similarityCache[hashInputEvent(evnt)]=similar;
   }
-  return m_similarity.value(hashInputEvent(evnt));
+  return m_similarityCache.value(hashInputEvent(evnt));
 }
 QString InputEventManager::hashInputEvent(const InputEvent &item)
 {
@@ -437,17 +447,17 @@ InputEventManager* InputEventManager::instance()
 ////////////////////////////////////////////////////////////////////////////////
 //Begin InputEventModel
 ////////////////////////////////////////////////////////////////////////////////
-  InputEventModel::InputEventModel(InputEventManager *InputEvent, QObject *parent)
+  InputEventModel::InputEventModel(InputEventManager *InputEvents, QObject *parent)
   : QAbstractTableModel(parent)
-    , m_InputEvent(InputEvent)
+    , m_InputEvents(InputEvents)
 {
-  Q_ASSERT(m_InputEvent);
-  connect(m_InputEvent, SIGNAL(InputEventReset()),
+  Q_ASSERT(m_InputEvents);
+  connect(m_InputEvents, SIGNAL(InputEventReset()),
       this, SLOT(InputEventReset()));
-  connect(m_InputEvent, SIGNAL(entryRemoved(InputEvent)),
+  connect(m_InputEvents, SIGNAL(entryRemoved(InputEvent)),
       this, SLOT(InputEventReset()));
 
-  connect(m_InputEvent, SIGNAL(entryAdded(InputEvent)),
+  connect(m_InputEvents, SIGNAL(entryAdded(InputEvent)),
       this, SLOT(entryAdded()));
   //connect(m_InputEvent, SIGNAL(entryUpdated(int)),
   //        this, SLOT(entryUpdated(int)));
@@ -460,7 +470,8 @@ void InputEventModel::InputEventReset()
 
 void InputEventModel::entryAdded()
 {
-  beginInsertRows(QModelIndex(), 0, 0);
+  int count = m_InputEvents->InputEvents().count();
+  beginInsertRows(QModelIndex(), count-1,count-1);
   endInsertRows();
 }
 
@@ -489,7 +500,7 @@ QVariant InputEventModel::headerData(int section, Qt::Orientation orientation, i
 
 QVariant InputEventModel::data(const QModelIndex &index, int role) const
 {
-  QList<InputEvent> lst = m_InputEvent->InputEvents();
+  QList<InputEvent> lst = m_InputEvents->InputEvents();
   if (index.row() < 0 || index.row() >= lst.size())
     return QVariant();
 
@@ -531,7 +542,7 @@ int InputEventModel::columnCount(const QModelIndex &parent) const
 
 int InputEventModel::rowCount(const QModelIndex &parent) const
 {
-  return (parent.isValid()) ? 0 : m_InputEvent->InputEvents().count();
+  return (parent.isValid()) ? 0 : m_InputEvents->InputEvents().count();
 }
 
 bool InputEventModel::removeRows(int row, int count, const QModelIndex &parent)
@@ -540,12 +551,12 @@ bool InputEventModel::removeRows(int row, int count, const QModelIndex &parent)
     return false;
   int lastRow = row + count - 1;
   beginRemoveRows(parent, row, lastRow);
-  QList<InputEvent> lst = m_InputEvent->InputEvents();
+  QList<InputEvent> lst = m_InputEvents->InputEvents();
   for (int i = lastRow; i >= row; --i)
     lst.removeAt(i);
-  disconnect(m_InputEvent, SIGNAL(InputEventReset()), this, SLOT(InputEventReset()));
-  m_InputEvent->setInputEvents(lst);
-  connect(m_InputEvent, SIGNAL(InputEventReset()), this, SLOT(InputEventReset()));
+  disconnect(m_InputEvents, SIGNAL(InputEventReset()), this, SLOT(InputEventReset()));
+  m_InputEvents->setInputEvents(lst);
+  connect(m_InputEvents, SIGNAL(InputEventReset()), this, SLOT(InputEventReset()));
   endRemoveRows();
   return true;
 }
@@ -556,7 +567,7 @@ bool InputEventModel::removeRows(int row, int count, const QModelIndex &parent)
 ////////////////////////////////////////////////////////////////////////////////
 //Begin InputEventTreeModel
 ////////////////////////////////////////////////////////////////////////////////
-  InputEventTreeModel::InputEventTreeModel(QAbstractItemModel *sourceModel, QObject *parent, int substrLength)
+InputEventTreeModel::InputEventTreeModel(QAbstractItemModel *sourceModel, QObject *parent, int substrLength)
   : QAbstractProxyModel(parent)
     , m_substrLength(substrLength)
 {
@@ -623,10 +634,7 @@ int InputEventTreeModel::rowCount(const QModelIndex &parent) const
       CountHash substrings = sourceModel()->index(i, 0).data(InputEventModel::SubstrRole + m_substrLength).value<CountHash>();
       foreach(QString substring, substrings.keys()){
         map[substring] << i;
-        //dd				qDebug() << substrings.value(substring).error;				
-        m_substrSums[substring].error += substrings.value(substring).error;
-        m_substrSums[substring].number += substrings.value(substring).number;
-        m_substrSums[substring].totalTime += substrings.value(substring).totalTime;
+        m_substrSums[substring] += substrings.value(substring);
       }
     }
     m_substr = map.keys();
@@ -767,7 +775,13 @@ void InputEventTreeModel::setSubstrLength(double substrLength)
   m_substrLength = substrLength;
   sourceReset();
 }
+////////////////////////////////////////////////////////////////////////////////
+//End InputEventTreeModel
+////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+//Begin InputEventFilterModel
+////////////////////////////////////////////////////////////////////////////////
   InputEventFilterModel::InputEventFilterModel(QAbstractItemModel *sourceModel,QList<int> rows,QObject *parent)
 : QSortFilterProxyModel(parent) ,
   m_rows(rows)
@@ -789,4 +803,236 @@ bool InputEventFilterModel::removeRows ( int row, int count, const QModelIndex &
     }
   }
   return QSortFilterProxyModel::removeRows(row,count,parent);
+}
+////////////////////////////////////////////////////////////////////////////////
+//End InputEventFilterModel
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+//Begin InputEventLessonModel
+////////////////////////////////////////////////////////////////////////////////
+  InputEventLessonModel::InputEventLessonModel(QAbstractItemModel *sourceModel, InputEventManager *InputEvents, QObject *parent, const QStringList & lessons,double similarity)
+  : QAbstractProxyModel(parent)
+  , m_InputEvents(InputEvents)
+  , m_lessons(lessons)
+  , m_lessonSimilarity(similarity)
+{
+  setSourceModel(sourceModel);
+}
+
+QVariant InputEventLessonModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+  switch(section){
+    case 0:
+      return "Lesson";
+    case 1:
+      return "#";
+    case 2:
+      return "Avg. Speed";
+    case 3:
+      return "Avg. % Correct";
+  }
+  return sourceModel()->headerData(section-4, orientation, role);
+}
+
+QVariant InputEventLessonModel::data(const QModelIndex &index, int role) const
+{
+  if ((role == Qt::EditRole || role == Qt::DisplayRole)) {
+    int start = index.internalId();
+    if (start == 0) { //Lessons
+      switch(index.column()){
+        case 0:
+          if(index.row() == m_lessons.size()){
+            return "Singletons";
+          }
+          return m_lessons[index.row()];
+        case 1:
+          return m_sourceRowCache.at(index.row()).size();
+        case 2:
+          return (double)m_lessonSums.at(index.row()).number/m_lessonSums.at(index.row()).totalTime*60000/5;
+        case 3:
+          return 100-(m_lessonSums.at(index.row()).error/double(m_lessonSums.at(index.row()).number))*100;
+      }
+      return QVariant();
+    }
+  }
+  int column = index.column() - 4;
+  if(role >= Qt::UserRole){
+    if(column < 0)
+      column = 0;
+  }
+  return QAbstractProxyModel::data(index.sibling(index.row(),column),role);
+}
+
+int InputEventLessonModel::columnCount(const QModelIndex &parent) const
+{
+  return sourceModel()->columnCount(mapToSource(parent)) + 4;
+}
+
+int InputEventLessonModel::rowCount(const QModelIndex &parent) const
+{
+  if ( parent.internalId() != 0
+      || parent.column() > 0
+      || !sourceModel())
+    return 0;
+
+  // row count OF lesson
+  if (!parent.isValid()) {
+    if (!m_sourceRowCache.isEmpty()){
+      return m_sourceRowCache.size();
+    }
+    QList<InputEvent> events = m_InputEvents->InputEvents();
+    QHash<QString,QList<int> > map;
+    QList<int> list;
+    for (int i = 0; i < events.length(); ++i) {
+      list.append(i);
+    }
+    for(int itr = 0;itr < m_lessons.size();++itr){
+      QList<int> similar = m_InputEvents->similarEvents(m_lessons.at(itr));
+      count lessonCount;
+      int rowNum = 0;
+      foreach(int i,similar){
+        if(!m_sourceRowMap.contains(i)){
+          m_sourceRowMap[i]=QPair<int,int>(itr,rowNum);
+          list.removeOne(i);
+        }
+        rowNum++;
+        lessonCount += events.at(i).counts();
+      }
+      m_lessonSums.append(lessonCount);
+      m_sourceRowCache << similar;
+    }
+    // append singletons if any left
+
+    count singletonCount;
+    int rowNum = 0;
+    foreach(int i,list){
+      if(!m_sourceRowMap.contains(i))
+        m_sourceRowMap[i]=QPair<int,int>(m_lessons.size(),rowNum);
+      rowNum++;
+      singletonCount += events.at(i).counts();
+    }
+    m_lessonSums.append(singletonCount);
+    m_sourceRowCache << list;
+
+    return m_sourceRowCache.size();
+  }
+  if (m_sourceRowCache.isEmpty())
+    rowCount(QModelIndex());
+  // row count FOR a lesson
+  return (m_sourceRowCache[parent.row()].length());
+}
+
+QModelIndex InputEventLessonModel::mapToSource(const QModelIndex &proxyIndex) const
+{
+  int offset = proxyIndex.internalId();
+  if (offset == 0)
+    return QModelIndex();
+  return sourceModel()->index(m_sourceRowCache[offset-1][proxyIndex.row()], proxyIndex.column());
+}
+
+QModelIndex InputEventLessonModel::mapFromSource(const QModelIndex &sourceIndex) const
+{
+  if (!sourceIndex.isValid())
+    return QModelIndex();
+
+  if (m_sourceRowCache.isEmpty())
+    rowCount(QModelIndex());
+
+  QPair<int,int> loc = m_sourceRowMap[sourceIndex.row()];
+  return createIndex(loc.second, sourceIndex.column(), loc.first+1);
+}
+
+QModelIndex InputEventLessonModel::index(int row, int column, const QModelIndex &parent) const
+{
+  if (row < 0
+      || column < 0 || column >= columnCount(parent)
+      || parent.column() > 0)
+    return QModelIndex();
+
+  if (!parent.isValid())
+    return createIndex(row, column, 0);
+  return createIndex(row, column, parent.row() + 1);
+}
+
+QModelIndex InputEventLessonModel::parent(const QModelIndex &index) const
+{
+  int offset = index.internalId();
+  if (offset == 0 || !index.isValid())
+    return QModelIndex();
+  return createIndex(offset - 1, 0, 0);
+}
+
+bool InputEventLessonModel::hasChildren(const QModelIndex &parent) const
+{
+  QModelIndex grandparent = parent.parent();
+  if (!grandparent.isValid())
+    return true;
+  return false;
+}
+
+Qt::ItemFlags InputEventLessonModel::flags(const QModelIndex &index) const
+{
+  if (!index.isValid())
+    return Qt::NoItemFlags;
+  return Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsDragEnabled;
+}
+
+bool InputEventLessonModel::removeRows(int row, int count, const QModelIndex &parent)
+{
+  return(QAbstractProxyModel::removeRows(row,count,parent));
+}
+
+void InputEventLessonModel::setSourceModel(QAbstractItemModel *newSourceModel)
+{
+  if (sourceModel()) {
+    disconnect(sourceModel(), SIGNAL(modelReset()), this, SLOT(sourceReset()));
+    disconnect(sourceModel(), SIGNAL(layoutChanged()), this, SLOT(sourceReset()));
+    disconnect(sourceModel(), SIGNAL(rowsInserted(QModelIndex,int,int)),
+        this, SLOT(sourceRowsInserted(QModelIndex,int,int)));
+    disconnect(sourceModel(), SIGNAL(rowsRemoved(QModelIndex,int,int)),
+        this, SLOT(sourceRowsRemoved(QModelIndex,int,int)));
+  }
+
+  QAbstractProxyModel::setSourceModel(newSourceModel);
+
+  if (newSourceModel) {
+    connect(sourceModel(), SIGNAL(modelReset()), this, SLOT(sourceReset()));
+    connect(sourceModel(), SIGNAL(layoutChanged()), this, SLOT(sourceReset()));
+    connect(sourceModel(), SIGNAL(rowsInserted(QModelIndex,int,int)),
+        this, SLOT(sourceRowsInserted(QModelIndex,int,int)));
+    connect(sourceModel(), SIGNAL(rowsRemoved(QModelIndex,int,int)),
+        this, SLOT(sourceRowsRemoved(QModelIndex,int,int)));
+  }
+
+  reset();
+}
+
+void InputEventLessonModel::sourceReset()
+{
+  m_lessonSums.clear();
+  m_sourceRowMap.clear();
+  m_sourceRowCache.clear();
+  reset();
+}
+
+void InputEventLessonModel::sourceRowsInserted(const QModelIndex &parent, int start, int end)
+{
+  Q_UNUSED(parent); // Avoid warnings when compiling release
+  Q_UNUSED(start);
+  Q_UNUSED(end);
+  Q_ASSERT(!parent.isValid());
+  //This is a hack, but it is not worth dealing with, just reload the data
+  sourceReset();
+}
+
+void InputEventLessonModel::sourceRowsRemoved(const QModelIndex &parent, int start, int end)
+{
+  Q_UNUSED(parent); // Avoid warnings when compiling release
+  Q_UNUSED(start);
+  Q_UNUSED(end);
+  Q_ASSERT(!parent.isValid());
+  //This is a hack, but it is not worth dealing with, just reload the data
+  sourceReset();
+  return;
 }

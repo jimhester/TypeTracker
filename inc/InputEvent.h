@@ -14,10 +14,15 @@
 class QByteArray;
 class QSqlQuery;
 
-struct count{
-  int number;
-  int error;
-  int totalTime;
+class count{
+  public:
+    count();
+    int number;
+    int error;
+    int totalTime;
+    count& operator=(const count& rhs);
+    count& operator+=(const count& rhs);
+    const count operator+(const count& rhs) const;
 };
 
 Q_DECLARE_METATYPE(count)
@@ -50,6 +55,7 @@ Q_DECLARE_METATYPE(CountHash)
     double percentCorrect() const;
     const CountHash& substr(int size=1,bool allowSpace=true) const;
     const CountHash& words() const;
+    count counts() const;
     bool operator==(const InputEvent& event);
 
   private:
@@ -63,7 +69,8 @@ Q_DECLARE_METATYPE(CountHash)
       PercentCorrect
     };
 
-    mutable QVector<QVariant> m_statCache;
+    mutable int m_numWords;
+    mutable count m_counts;
 
     QString m_keys;
     QVector<int> m_times;
@@ -103,8 +110,10 @@ class InputEventManager : public QObject
 
   QList<InputEvent> InputEvents() const;
   void setInputEvents(const QList<InputEvent> &InputEvents);
+  void setSimilarityCutoff(double similarityCutoff);
 
-  QList<int> similarEvents(const InputEvent &evnt,double difference=0.0);
+  QList<int> similarEvents(const InputEvent &evnt);
+  QList<int> similarEvents(const QString &str);
 
   InputEventModel *inputEventModel() const;
 
@@ -122,13 +131,14 @@ class InputEventManager : public QObject
   QString hashInputEvent(const InputEvent &item);
 
   int m_InputEventLimit;
+  double m_similarityCutoff;
   QTimer m_expiredTimer;
   QList<InputEvent> m_InputEvents;
 
   InputEventModel *m_InputEventModel;
   InputEventTreeModel *m_InputEventTreeModel;
 
-  QHash<QString,QList<int> > m_similarity;
+  QHash<QString,QList<int> > m_similarityCache;
 
   InputEventManager(const InputEventManager&);
   InputEventManager& operator=(const InputEventManager &);
@@ -151,7 +161,7 @@ class InputEventModel : public QAbstractTableModel
     SubstrRole = Qt::UserRole + 3, //the size of the substr is role #-SubstrRole+1
   };
 
-  InputEventModel(InputEventManager *InputEvent, QObject *parent = 0);
+  InputEventModel(InputEventManager *InputEvents, QObject *parent = 0);
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
   QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
   int columnCount(const QModelIndex &parent = QModelIndex()) const;
@@ -159,7 +169,7 @@ class InputEventModel : public QAbstractTableModel
   bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
 
   private:
-  InputEventManager *m_InputEvent;
+  InputEventManager *m_InputEvents;
 };
 
 // proxy model for the InputEvent model that converts the list
@@ -214,4 +224,41 @@ class InputEventFilterModel : public QSortFilterProxyModel
     bool filterAcceptsRow(int sourceRow, const QModelIndex & source_parent) const;
   private:
     QList<int> m_rows;
+};
+
+// proxy model for the InputEvent model that converts the list
+// into a tree, grouped by lessons
+class InputEventLessonModel : public QAbstractProxyModel
+{
+  Q_OBJECT
+
+  public:
+  InputEventLessonModel(QAbstractItemModel *sourceModel, InputEventManager *InputEvents, QObject *parent = 0, const QStringList & lessons=QStringList(), double similarity=.9);
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+  int columnCount(const QModelIndex &parent) const;
+  int rowCount(const QModelIndex &parent = QModelIndex()) const;
+  QModelIndex mapFromSource(const QModelIndex &sourceIndex) const;
+  QModelIndex mapToSource(const QModelIndex &proxyIndex) const;
+  QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
+  QModelIndex parent(const QModelIndex &index= QModelIndex()) const;
+  bool hasChildren(const QModelIndex &parent = QModelIndex()) const;
+  Qt::ItemFlags flags(const QModelIndex &index) const;
+  bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
+  QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+
+  void setSourceModel(QAbstractItemModel *sourceModel);
+
+  private slots:
+    void sourceReset();
+  void sourceRowsInserted(const QModelIndex &parent, int start, int end);
+  void sourceRowsRemoved(const QModelIndex &parent, int start, int end);
+
+  private:
+  
+  mutable QList< QList<int> > m_sourceRowCache;
+  mutable QMap<int,QPair<int,int> > m_sourceRowMap;
+  mutable QStringList m_lessons;
+  mutable QList<count> m_lessonSums;
+  double m_lessonSimilarity;
+  InputEventManager *m_InputEvents;
 };

@@ -26,6 +26,9 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
 {
   Q_OBJECT
 
+    public slots:
+      void generateLessons();
+
   public:
     TypeTracker();
     //~TypeTracker();
@@ -51,6 +54,7 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
 
     EditTableView* setupTableView(const QString &title);
     ttTreeView* setupTreeView(const QString &title);
+    ttTreeView* setupLessonTreeView(const QString &title);
 
     static QWidget* app;
 #ifdef Q_WS_WIN
@@ -72,6 +76,8 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
     InputEventManager* m_manager;
 
     QAction* a_remove;
+
+    QStringList m_lessons;
 };
 
 #ifdef Q_WS_WIN
