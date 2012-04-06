@@ -238,7 +238,7 @@ void TypeTracker::createLesson()
     QModelIndexList indexes = view->selectionModel()->selectedIndexes();
     if(!indexes.isEmpty()){
       int row = indexes.first().data(InputEventModel::ItemOffsetRole).toInt();
-      const InputEvent &evnt = m_manager->InputEvents().at(row);
+      InputEvent evnt = m_manager->InputEvents().at(row);
       InputLesson* lesson = new InputLesson(evnt,this);
       lesson->setManager(m_manager);
       tab->addTab(lesson,"Lesson");

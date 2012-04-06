@@ -14,33 +14,31 @@ class InputLesson :
 {
   Q_OBJECT
 
-    public slots:
-  void changeCursorPosition();
-  void timeout();
-
   public:
-  InputLesson(const InputEvent &event, QWidget* parent = 0);
-  void setManager(InputEventManager* manager);
+    InputLesson(const InputEvent &event, QWidget* parent = 0);
+    void setManager(InputEventManager* manager);
 
-private:
-	void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
-	void addGhost();
+  private slots:
+    void changeCursorPosition();
+    void timeout();
+  private:
+	  void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
+	  void addGhost();
 
-  ~InputLesson(void);
+    ~InputLesson(void);
 
-  QTime* m_time;
-  QTimer* m_timer;
+    QTime* m_time;
+    QTimer* m_timer;
 
-  int m_timeout;
-  int m_location;
-  QTextCursor* m_cursor;
-  InputEvent m_baseEvent;
-  InputEvent m_inputEvent;
-  QTextEdit* m_lesson;
-  QTextEdit* m_input;
+    int m_timeout;
+    int m_location;
+    QTextCursor* m_cursor;
+    InputEvent m_baseEvent;
+    InputEvent m_inputEvent;
+    QTextEdit* m_lesson;
 
-  InputEventGhost* m_ghost;
-  InputEventManager* m_manager;
+    InputEventGhost* m_ghost;
+    InputEventManager* m_manager;
 };
 
 class GhostDock;
