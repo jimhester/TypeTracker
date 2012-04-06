@@ -221,11 +221,11 @@ QDateTime InputEvent::date() const
 {
   return QDateTime(m_datetime);
 }
-QString InputEvent::keys() const
+const QString& InputEvent::keys() const
 {
   return m_keys;
 }
-QVector<int> InputEvent::times() const
+const QVector<int>& InputEvent::times() const
 {
   return m_times;
 }
@@ -233,9 +233,9 @@ void InputEvent::setDate(const QDateTime &datetime)
 {
   m_datetime = datetime;
 }
-QString InputEvent::str() const
+const QString& InputEvent::str() const
 {
-  return QString(m_final);
+  return m_final;
 }
 double InputEvent::trueWordsPerMinute() const
 {
@@ -299,7 +299,7 @@ InputEventManager::~InputEventManager()
   save();
 }
 
-QList<InputEvent> InputEventManager::InputEvents() const
+const QList<InputEvent>& InputEventManager::InputEvents() const
 {
   return m_InputEvents;
 }
@@ -500,11 +500,11 @@ QVariant InputEventModel::headerData(int section, Qt::Orientation orientation, i
 
 QVariant InputEventModel::data(const QModelIndex &index, int role) const
 {
-  QList<InputEvent> lst = m_InputEvents->InputEvents();
+  const QList<InputEvent>& lst = m_InputEvents->InputEvents();
   if (index.row() < 0 || index.row() >= lst.size())
     return QVariant();
 
-  const InputEvent &item = lst[index.row()];
+  const InputEvent &item = lst.at(index.row());
   if(role >= InputEventModel::SubstrRole)
     return QVariant::fromValue<CountHash>(item.substr(role - SubstrRole+1));
   switch (role) {

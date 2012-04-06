@@ -44,10 +44,10 @@ Q_DECLARE_METATYPE(CountHash)
     void clear();
     bool isEmpty() const;
     bool isValid() const;
-    QString keys() const;
-    QVector<int> times() const;
+    const QString& keys() const;
+    const QVector<int>& times() const;
     QDateTime date() const;
-    QString str() const;
+    const QString& str() const;
     int totalTime() const;
     double trueWordsPerMinute() const;
     double normalizedWordsPerMinute(int size=5) const;
@@ -108,7 +108,7 @@ class InputEventManager : public QObject
 
   //void updateInputEvent(const QUrl &url, const QString &title);
 
-  QList<InputEvent> InputEvents() const;
+  const QList<InputEvent>& InputEvents() const;
   void setInputEvents(const QList<InputEvent> &InputEvents);
   void setSimilarityCutoff(double similarityCutoff);
 

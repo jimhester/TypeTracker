@@ -58,6 +58,7 @@ QWidget* TypeTracker::app = 0;
   tab = new QTabWidget(this);
   setCentralWidget(tab);
   eventTable = setupTableView(QObject::tr("Input Events"));
+  tab->addTab(eventTable,"Events");
   ttTreeView* lessonView = setupLessonTreeView(QObject::tr("Lessons"));
   tab->addTab(lessonView,"Lessons");
 
@@ -71,7 +72,6 @@ QWidget* TypeTracker::app = 0;
   //layout->addWidget(slider);
   //connect(slider, SIGNAL(valueChanged(double)),m_treeModel,SLOT(setSubstrLength(double)));
   
-  tab->addTab(eventTable,"Events");
   tab->setDocumentMode(true);
   tab->setTabsClosable(true);
   connect(tab,SIGNAL(tabCloseRequested(int) ),this, SLOT(closeTab(int) ) );
@@ -89,7 +89,7 @@ QWidget* TypeTracker::app = 0;
 void TypeTracker::generateLessons()
 {
   typedef QPair<QString,QList<int> > simPair;
-  QList<InputEvent> events = m_manager->InputEvents();
+  const QList<InputEvent>& events = m_manager->InputEvents();
   QMap<int,simPair> similarities;
   foreach(InputEvent event,events){
     QList<int> similar = m_manager->similarEvents(event);
@@ -238,7 +238,7 @@ void TypeTracker::createLesson()
     QModelIndexList indexes = view->selectionModel()->selectedIndexes();
     if(!indexes.isEmpty()){
       int row = indexes.first().data(InputEventModel::ItemOffsetRole).toInt();
-      InputEvent evnt = m_manager->InputEvents().at(row);
+      const InputEvent &evnt = m_manager->InputEvents().at(row);
       InputLesson* lesson = new InputLesson(evnt,this);
       lesson->setManager(m_manager);
       tab->addTab(lesson,"Lesson");

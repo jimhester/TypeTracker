@@ -149,10 +149,10 @@ InputEventGhost::InputEventGhost(const InputEvent &event, QWidget* parent)
 	: QTextEdit(parent) ,
 	m_cursor(0) ,
 	m_timer(0) , 
-	m_location(0)
+	m_location(0),
+  m_event(event)
 {
 
-	setEvent(event);
 	setTextInteractionFlags(Qt::NoTextInteraction);
 
 	m_cursor = new QTextCursor(document());
@@ -248,9 +248,10 @@ void GhostDock::populateComboBox(bool enabled)
 {
 	if(enabled){
 		QList<int> idxs = InputEventManager::instance()->similarEvents(*m_ghost->event());
-		QList<InputEvent> events = InputEventManager::instance()->InputEvents();
-		foreach(int idx, idxs){
-			qDebug() << events.at(idx).str().left(5);
-		}
+//		QList<InputEvent> events 
+//		= InputEventManager::instance()->InputEvents();
+//		foreach(int idx, idxs){
+//			qDebug() << events.at(idx).str().left(5);
+//		}
 	}
 }
