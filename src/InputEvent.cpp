@@ -93,11 +93,15 @@ void InputEvent::process() const
     m_finalErrors.fill(false,m_keys.size());
     m_finalTimes.fill(0,m_keys.size());
     for(int i = 0; i < m_keys.size();i++){
-      m_finalTimes[finalItr]+=m_times[i];
+      m_finalTimes[finalItr]+=m_times.at(i);
       if(m_keys.at(i) == 0x08){ //0x08 is backspace
+		if(m_keys.contains(i))
+			m_wordBreaks.removeAt(m_wordBreaks.indexOf(i)); // TODO search from tail?
         finalItr = (finalItr-1) % (finalItr + 1); //decrement until 0
         m_finalErrors[finalItr]=true;
       } else {
+		if(i > 0 && !m_keys.at(i).isSpace() && m_keys.at(i-1).isSpace())
+			m_wordBreaks.append(i);
         if(m_error.at(i)){
           m_finalErrors[finalItr]=true;
         }
@@ -139,7 +143,6 @@ bool InputEvent::isEmpty() const
 }
 void InputEvent::addKey(const QString & key, int msec,bool isCorrect)
 {
-  //	qDebug() << (int)key.toAscii().at(0);
   m_keys += key;
   m_times += msec;
   m_error += !isCorrect;
@@ -179,8 +182,10 @@ const CountHash& InputEvent::substr(int size,bool allowSpace) const
   }
   return(m_substr[size]);
 }
-const CountHash& InputEvent::words() const
+const CountHash& InputEvent::words(bool includeSpaces) const
 {
+  if(includeSpaces)
+    m_words.clear();
   if(isValid() && m_words.isEmpty()){
     int numWords = 0;
     int start = 0;
@@ -193,6 +198,9 @@ const CountHash& InputEvent::words() const
             //Deal with apostrophies
             || (end < m_final.length()-1 && m_final.at(end) == '\''
               && m_final.at(end+1).isLetterOrNumber()))){
+        end++;
+      }
+      while(includeSpaces && m_final.at(end).isSpace()){
         end++;
       }
       QString word = m_final.mid(start,end-start).toLower();
@@ -279,6 +287,74 @@ bool InputEvent::operator==(const InputEvent& event)
 count InputEvent::counts() const
 {
   return m_counts;
+}
+InputEvent InputEvent::randomizeEvent() const
+{
+  struct word{
+    QString keys;
+    QVector<int> times;
+    QVector<bool> error;
+  };
+	int prevPos = 0;
+	QList<word> locs;
+	foreach(int pos, m_wordBreaks){
+    word w;
+    int length = pos-prevPos;
+    qDebug() << m_keys.mid(prevPos,length);
+    w.keys = m_keys.mid(prevPos,length);
+    w.times = m_times.mid(prevPos,length);
+    w.error = m_error.mid(prevPos,length);
+		locs.append(w);
+		prevPos = pos;
+	}
+  word last;
+  int start = m_wordBreaks.last();
+  int length = m_keys.size()-start;
+  qDebug() << m_keys.mid(start,length);
+  last.keys = m_keys.mid(start,length);
+  last.times = m_times.mid(start,length);
+  last.error = m_error.mid(start,length);
+
+  //Shuffle words
+  int i,n;
+  n = (locs.end()-locs.begin());
+  for (i=n-1; i>0; --i) {
+    int rand = int(qrand()/static_cast<double>( RAND_MAX ) * (i+1));
+    qSwap (locs[i],locs[rand]); 
+  }
+
+  //Insert last word randomly
+  int lastIns = int(qrand()/static_cast<double>( RAND_MAX ) * n);
+  if(lastIns == locs.size()){
+    locs.append(last);
+  } else {
+    //Have to move the spaces after the shuffled last to the new last
+    word &trueLast = locs.last();
+    int end = trueLast.keys.size()-1;
+    while(trueLast.keys.at(end).isSpace()) --end;
+    end++;
+    int size = trueLast.keys.size()-end;
+    qDebug() << trueLast.keys.mid(end,size);
+    last.keys += trueLast.keys.mid(end,size);
+    last.times += trueLast.times.mid(end,size);
+    last.error += trueLast.error.mid(end,size);
+
+    trueLast.keys.remove(end,size);
+    trueLast.times.remove(end,size);
+    trueLast.error.remove(end,size);
+    locs.insert(lastIns,last);
+  }
+
+  QString keys;
+  QVector<int> times;
+  QVector<bool> errors;
+
+  foreach(word w,locs){
+    keys += w.keys;
+    times += w.times;
+    errors += w.error;
+  }
+  return InputEvent(keys,times,m_datetime,errors);
 }
 ////////////////////////////////////////////////////////////////////////////////
 // InputEventManager

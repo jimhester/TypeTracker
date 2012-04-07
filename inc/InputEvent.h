@@ -54,8 +54,9 @@ Q_DECLARE_METATYPE(CountHash)
     double charactersPerMinute() const;
     double percentCorrect() const;
     const CountHash& substr(int size=1,bool allowSpace=true) const;
-    const CountHash& words() const;
+    const CountHash& words(bool includeSpaces=false) const;
     count counts() const;
+    InputEvent randomizeEvent() const;
     bool operator==(const InputEvent& event);
 
   private:
@@ -83,6 +84,7 @@ Q_DECLARE_METATYPE(CountHash)
     mutable QVector<int> m_finalTimes;
     mutable QHash<int, CountHash> m_substr;
     mutable CountHash m_words;
+    mutable QList<int> m_wordBreaks;
 
     static QRegExp m_regexp;
 };

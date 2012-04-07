@@ -25,23 +25,25 @@ InputLesson::InputLesson(const InputEvent &event, QWidget* parent) :
   QVBoxLayout* layout = new QVBoxLayout;
   m_lesson = new QTextEdit(this);
 
+  layout->setDirection(QVBoxLayout::BottomToTop);
+  
   layout->addWidget(m_lesson);
 
   m_lesson->setFontPointSize(pointSize);
   m_lesson->setTextColor(Qt::gray);
   m_lesson->setText(m_baseEvent.str());
-
-  m_cursor = new QTextCursor(m_lesson->document());
-
   connect(m_lesson, SIGNAL(cursorPositionChanged() ),this, SLOT(changeCursorPosition() ) );
 
-  layout->setDirection(QVBoxLayout::BottomToTop);
-  
   m_ghost = new InputEventGhost(m_baseEvent,this);
   layout->addWidget(m_ghost);
+
+  QPushButton *button = new QPushButton("&Randomize", this);
+  connect(button, SIGNAL(clicked() ),this, SLOT(randomize() ) );
+  layout->addWidget(button);
+
   setLayout(layout);
 
-   m_timer = new QTimer;
+  m_timer = new QTimer;
   m_timer->setSingleShot(true);
 
   connect(m_timer, SIGNAL(timeout()), this, SLOT(timeout()));
@@ -136,6 +138,18 @@ void InputLesson::timeout()
   m_ghost->rewind(m_timeout);
   m_timer->stop();
 }
+void InputLesson::randomize()
+{
+  InputEvent newEvent = m_baseEvent.randomizeEvent();
+  m_baseEvent = newEvent;
+  m_lesson->clear();
+  m_lesson->setFontPointSize(pointSize);
+  m_lesson->setTextColor(Qt::gray);
+  m_lesson->setText(m_baseEvent.str());
+  m_ghost->clear();
+  m_ghost->setEvent(m_baseEvent);
+}
+
 InputEventGhost::InputEventGhost(const InputEvent &event, QWidget* parent)
   : QTextEdit(parent) ,
   m_cursor(0) ,
@@ -155,12 +169,12 @@ InputEventGhost::InputEventGhost(const InputEvent &event, QWidget* parent)
   m_timer->setSingleShot(true);
   connect(m_timer, SIGNAL(timeout()),this,SLOT(nextKey()));
 
-  m_dock = new GhostDock(this, this);
+//  m_dock = new GhostDock(this, this);
 }
 InputEventGhost::~InputEventGhost()
 {
-  if(m_dock)
-    m_dock->close();
+//  if(m_dock)
+//    m_dock->close();
 }
 void InputEventGhost::nextKey()
 {
@@ -173,6 +187,14 @@ void InputEventGhost::nextKey()
   if(m_location < m_times.size()){
     m_timer->start(m_times[m_location]);
   }
+}
+void InputEventGhost::clear()
+{
+  setText("");
+  QTextCharFormat fmt;
+  fmt.setFontPointSize(pointSize);
+  m_cursor->mergeCharFormat(fmt);
+  stop();
 }
 void InputEventGhost::start()
 {

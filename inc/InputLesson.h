@@ -14,6 +14,9 @@ class InputLesson :
 {
   Q_OBJECT
 
+  public slots:
+    void randomize();
+
   public:
     InputLesson(const InputEvent &event, QWidget* parent = 0);
     void setManager(InputEventManager* manager);
@@ -32,7 +35,7 @@ class InputLesson :
 
     int m_timeout;
     int m_location;
-    QTextCursor* m_cursor;
+    //QTextCursor* m_cursor;
     InputEvent m_baseEvent;
     InputEvent m_inputEvent;
     QTextEdit* m_lesson;
@@ -55,6 +58,7 @@ class InputEventGhost : public QTextEdit
     void pause();
     void stop();
     void rewind(int msec);
+    void clear();
 
     bool isActive() const;
     bool isComplete() const;
@@ -75,7 +79,7 @@ class InputEventGhost : public QTextEdit
     QString m_text;
     int m_location;
     bool m_running;
-    GhostDock* m_dock;
+    //GhostDock* m_dock;
 };
 class GhostDock : public QDockWidget , private Ui::GhostDock
 {
