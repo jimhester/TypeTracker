@@ -88,27 +88,31 @@ void InputEvent::process() const
     m_final.clear();
     m_finalErrors.clear();
     m_finalTimes.clear();
+    m_wordBreaks.clear();
     int finalItr = 0;
     m_final.resize(m_keys.size());
     m_finalErrors.fill(false,m_keys.size());
     m_finalTimes.fill(0,m_keys.size());
+    qDebug() << m_keys.size() << m_keys;
+    QList<int> d;
     for(int i = 0; i < m_keys.size();i++){
       m_finalTimes[finalItr]+=m_times.at(i);
       if(m_keys.at(i) == 0x08){ //0x08 is backspace
-		if(m_keys.contains(i))
-			m_wordBreaks.removeAt(m_wordBreaks.indexOf(i)); // TODO search from tail?
+		    if(m_wordBreaks.contains(i)) m_wordBreaks.removeAt(m_wordBreaks.indexOf(i)); // TODO search from tail?
+        
         finalItr = (finalItr-1) % (finalItr + 1); //decrement until 0
         m_finalErrors[finalItr]=true;
       } else {
-		if(i > 0 && !m_keys.at(i).isSpace() && m_keys.at(i-1).isSpace())
-			m_wordBreaks.append(i);
+		    if(i > 0 && !m_keys.at(i).isSpace() && m_keys.at(i-1).isSpace()) m_wordBreaks.append(i);
         if(m_error.at(i)){
           m_finalErrors[finalItr]=true;
         }
         m_final[finalItr] = m_keys.at(i);
         finalItr++;
       }
+      d << finalItr;
     }
+    qDebug() << finalItr << ":" << d;
     m_final = m_final.left(finalItr);
     m_finalTimes = m_finalTimes.mid(0,finalItr);
     m_finalErrors = m_finalErrors.mid(0,finalItr);
@@ -126,6 +130,12 @@ void InputEvent::clear()
   m_keys.clear();
   m_times.clear();
   m_final.clear();
+  m_finalErrors.clear();
+  m_finalTimes.clear();
+  m_numWords = 0;
+  m_counts = count();
+  m_wordBreaks.clear();
+  m_words.clear();
   m_processed = false;
 }
 
@@ -356,6 +366,29 @@ InputEvent InputEvent::randomizeEvent() const
   }
   return InputEvent(keys,times,m_datetime,errors);
 }
+//InputEvent & InputEvent::operator=(const InputEvent &rhs)
+//{
+//    if(this != &rhs){
+//      m_keys = rhs.m_keys;
+//      m_times = rhs.m_times;
+//      m_error = rhs.m_error;
+//      m_datetime = rhs.m_datetime;
+//
+//      m_processed = 0;
+//      process();
+//    }
+//    return *this;
+//}
+//InputEvent::InputEvent(const InputEvent& rhs)
+//{
+//  m_keys = rhs.m_keys;
+//  m_times = rhs.m_times;
+//  m_error = rhs.m_error;
+//  m_datetime = rhs.m_datetime;
+//
+//  m_processed = 0;
+//  process();
+//}
 ////////////////////////////////////////////////////////////////////////////////
 // InputEventManager
 ////////////////////////////////////////////////////////////////////////////////
@@ -366,7 +399,7 @@ InputEvent InputEvent::randomizeEvent() const
     , m_similarityCutoff(0)
 {
   load();
-
+  m_inputEventManager = this;
   m_InputEventModel = new InputEventModel(this, this);
 }
 
@@ -511,7 +544,7 @@ QString InputEventManager::hashInputEvent(const InputEvent &item)
 InputEventManager* InputEventManager::m_inputEventManager = 0;
 InputEventManager* InputEventManager::instance()
 {
-  if(!m_inputEventManager)
+  if(m_inputEventManager == 0)
     m_inputEventManager = new InputEventManager();
   return m_inputEventManager;
 }

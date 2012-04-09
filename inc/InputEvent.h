@@ -59,6 +59,9 @@ Q_DECLARE_METATYPE(CountHash)
     InputEvent randomizeEvent() const;
     bool operator==(const InputEvent& event);
 
+    //InputEvent(const InputEvent& rhs);
+    //InputEvent & operator=(const InputEvent &rhs);
+
   private:
     void process() const;
 

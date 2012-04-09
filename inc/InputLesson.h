@@ -9,6 +9,7 @@
 class QTextCursor;
 class QTime;
 class InputEventGhost;
+class InputLessonTextEdit;
 class InputLesson :
   public QWidget
 {
@@ -22,7 +23,7 @@ class InputLesson :
     void setManager(InputEventManager* manager);
 
   private slots:
-    void changeCursorPosition();
+    void processEvent();
     void timeout();
   private:
 	  void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
@@ -30,18 +31,40 @@ class InputLesson :
 
     ~InputLesson(void);
 
-    QTime* m_time;
     QTimer* m_timer;
 
     int m_timeout;
     int m_location;
-    //QTextCursor* m_cursor;
     InputEvent m_baseEvent;
-    InputEvent m_inputEvent;
-    QTextEdit* m_lesson;
+    InputLessonTextEdit* m_lesson;
 
     InputEventGhost* m_ghost;
     InputEventManager* m_manager;
+};
+
+class InputLessonTextEdit : public QTextEdit
+{
+  Q_OBJECT
+
+  signals:
+    void eventOccured();
+  
+  public:
+    InputLessonTextEdit(const InputEvent& event, QWidget* parent = 0);
+    void setInputEvent(const InputEvent& event);
+  protected:
+    void keyPressEvent(QKeyEvent* event);
+    void mouseReleaseEvent(QMouseEvent* e);
+  private:
+    void deleteChar();
+    void addCorrectChar(QChar chr);
+    void addIncorrectChar(QChar chr);
+	  void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
+
+    int m_location;
+    InputEvent m_baseEvent;
+    InputEvent m_buf;
+    QTime* m_time;
 };
 
 class GhostDock;

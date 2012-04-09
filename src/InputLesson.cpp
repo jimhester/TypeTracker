@@ -21,18 +21,12 @@ InputLesson::InputLesson(const InputEvent &event, QWidget* parent) :
   m_timer(0) ,
   m_timeout(1000)
 {
-  m_time = new QTime;
   QVBoxLayout* layout = new QVBoxLayout;
-  m_lesson = new QTextEdit(this);
+  m_lesson = new InputLessonTextEdit(m_baseEvent,this);
 
   layout->setDirection(QVBoxLayout::BottomToTop);
   
   layout->addWidget(m_lesson);
-
-  m_lesson->setFontPointSize(pointSize);
-  m_lesson->setTextColor(Qt::gray);
-  m_lesson->setText(m_baseEvent.str());
-  connect(m_lesson, SIGNAL(cursorPositionChanged() ),this, SLOT(changeCursorPosition() ) );
 
   m_ghost = new InputEventGhost(m_baseEvent,this);
   layout->addWidget(m_ghost);
@@ -47,71 +41,21 @@ InputLesson::InputLesson(const InputEvent &event, QWidget* parent) :
   m_timer->setSingleShot(true);
 
   connect(m_timer, SIGNAL(timeout()), this, SLOT(timeout()));
+  connect(m_lesson, SIGNAL(eventOccured() ), this, SLOT( processEvent() ) );
 }
-
 InputLesson::~InputLesson(void)
 {
   if(m_ghost)
     m_ghost->close();
 }
-
-void InputLesson::changeCursorPosition()
+void InputLesson::processEvent()
 {
-  int msec_elapsed = m_time->restart();
   if(!m_timer->isActive()){
     m_ghost->start();
-    msec_elapsed = 0;
   }
-  QTextCursor cursor = m_lesson->textCursor();
-  int newPos = cursor.position();
-  if(newPos <= m_location){
-     int diff = m_location - newPos;
-    int itr = diff;
-    while(itr > 1){
-      m_inputEvent.addKey(QChar(0x08),0);
-      itr--;
-    }
-    m_inputEvent.addKey(QChar(0x08),msec_elapsed);
-    disconnect(m_lesson, SIGNAL(cursorPositionChanged() ),this, SLOT(changeCursorPosition() ) );
-      if(diff > 1)
-        cursor.setPosition(m_location,QTextCursor::KeepAnchor);
-      cursor.insertText(m_baseEvent.str().mid(newPos,m_location-newPos));
-      cursor.setPosition(newPos,QTextCursor::KeepAnchor);
-      setSelectedTextColor(Qt::gray,&cursor);
-      cursor.clearSelection();
-      m_lesson->setTextCursor(cursor);
-    connect(m_lesson, SIGNAL(cursorPositionChanged() ),this, SLOT(changeCursorPosition() ) );
-
-  } else if(newPos == m_location+1 && newPos <= m_baseEvent.str().size()) {
-    cursor.movePosition(QTextCursor::Left,QTextCursor::KeepAnchor);
-    QString text = cursor.selectedText();
-    if(text == m_baseEvent.str().at(newPos-1)){
-      m_inputEvent.addKey(text,msec_elapsed,true);
-      setSelectedTextColor(Qt::black,&cursor);
-    } else {
-      m_inputEvent.addKey(text,msec_elapsed,false);
-      if(text == " "){
-        setSelectedTextColor(Qt::red,&cursor,true);
-      } else{
-        setSelectedTextColor(Qt::red,&cursor);
-      }
-    }
-    cursor.setPosition(newPos+1);
-    cursor.movePosition(QTextCursor::Left,QTextCursor::KeepAnchor);
-    cursor.removeSelectedText();
-    if(newPos >= m_baseEvent.str().size()){
-      //finishEvent
-      if(m_inputEvent.isValid()){
-        m_inputEvent.setDate(QDateTime::currentDateTime());
-        m_manager->addInputEvent(m_inputEvent);
-        m_inputEvent.clear();
-        m_ghost->stop();
-      }
-    }
-  }
-  m_location = newPos;
   m_timer->start(m_timeout);
 }
+
 void InputLesson::setSelectedTextColor(QColor color, QTextCursor* cursor,bool background)
 {
   QTextCharFormat fmt;
@@ -127,11 +71,6 @@ void InputLesson::setManager(InputEventManager* manager)
   m_manager = manager;
 }
 
-void InputLesson::addGhost()
-{
-  InputEventGhost * ghost = new InputEventGhost(m_inputEvent,this);
-  layout()->addWidget(ghost);
-}
 void InputLesson::timeout()
 {
   m_ghost->pause();
@@ -142,14 +81,109 @@ void InputLesson::randomize()
 {
   InputEvent newEvent = m_baseEvent.randomizeEvent();
   m_baseEvent = newEvent;
-  m_lesson->clear();
-  m_lesson->setFontPointSize(pointSize);
-  m_lesson->setTextColor(Qt::gray);
-  m_lesson->setText(m_baseEvent.str());
+  m_lesson->setInputEvent(m_baseEvent);
   m_ghost->clear();
   m_ghost->setEvent(m_baseEvent);
 }
+InputLessonTextEdit::InputLessonTextEdit(const InputEvent& event, QWidget* parent)
+  : QTextEdit(parent) ,
+  m_baseEvent(event) ,
+  m_location(0) ,
+  m_time(0)
+{
+  m_time = new QTime();
+  setFontPointSize(pointSize);
+  setTextColor(Qt::gray);
+  setText(m_baseEvent.str());
 
+}
+void InputLessonTextEdit::setInputEvent(const InputEvent& event)
+{
+  m_baseEvent = event;
+  m_location = 0;
+  m_buf.clear();
+  setFontPointSize(pointSize);
+  setTextColor(Qt::gray);
+  setTextInteractionFlags(Qt::TextEditable);
+  setText(m_baseEvent.str());
+}
+  
+void InputLessonTextEdit::keyPressEvent(QKeyEvent* event)
+{
+  if(textInteractionFlags() & Qt::TextEditable){
+      int msec = m_time->restart();
+      if(msec > 1000)
+        msec = 0;
+      if(!event->text().isEmpty()){
+        if(event->text() == QChar(0x08)){
+          m_buf.addKey(event->text(),msec,false);
+          deleteChar();
+        } else {
+          bool correct = event->text() == m_baseEvent.str().at(m_location);
+          m_buf.addKey(event->text(),msec,correct);
+          if(correct){
+            addCorrectChar(event->text().at(0));
+          } else {
+            addIncorrectChar(event->text().at(0));
+          }
+        }
+      }
+      emit eventOccured();
+  }
+}
+void InputLessonTextEdit::mouseReleaseEvent(QMouseEvent* event)
+{
+  QTextEdit::mouseReleaseEvent(event);
+}
+
+void InputLessonTextEdit::deleteChar()
+{
+  if(m_location > 0){
+    QTextCursor cursor = textCursor();
+    QTextCharFormat fmt = cursor.charFormat();
+    fmt.setBackground(Qt::white);
+    fmt.setForeground(Qt::gray);
+    cursor.setPosition(m_location);
+    cursor.setPosition(m_location-1,QTextCursor::KeepAnchor);
+    cursor.insertText(m_baseEvent.str().mid(m_location-1,1),fmt);
+    cursor.setPosition(m_location-1);
+    setTextCursor(cursor);
+    m_location--;
+  }
+}
+void InputLessonTextEdit::addCorrectChar(QChar chr)
+{
+  if(m_location == m_baseEvent.str().size()-1 && m_baseEvent.isValid()){
+    m_buf.setDate(QDateTime::currentDateTime());
+    InputEventManager::instance()->addInputEvent(m_buf);
+    setTextInteractionFlags(Qt::NoTextInteraction);
+  }
+  QTextCursor cursor = textCursor();
+  QTextCharFormat fmt;
+  fmt.setBackground(Qt::white);
+  fmt.setForeground(Qt::black);
+  cursor.setPosition(m_location);
+  cursor.movePosition(QTextCursor::Right,QTextCursor::KeepAnchor);
+  cursor.mergeCharFormat(fmt);
+  cursor.insertText(chr);
+  m_location++;
+}
+void InputLessonTextEdit::addIncorrectChar(QChar chr)
+{
+    QTextCursor cursor = textCursor();
+    QTextCharFormat fmt;
+    fmt.setBackground(Qt::white);
+    fmt.setForeground(Qt::red);
+
+    cursor.setPosition(m_location);
+    cursor.movePosition(QTextCursor::Right,QTextCursor::KeepAnchor);
+    if(cursor.selectedText().at(0).isSpace()){
+      fmt.setBackground(fmt.foreground());
+    }
+    cursor.mergeCharFormat(fmt);
+    cursor.insertText(chr);
+    m_location++;
+}
 InputEventGhost::InputEventGhost(const InputEvent &event, QWidget* parent)
   : QTextEdit(parent) ,
   m_cursor(0) ,
@@ -169,12 +203,9 @@ InputEventGhost::InputEventGhost(const InputEvent &event, QWidget* parent)
   m_timer->setSingleShot(true);
   connect(m_timer, SIGNAL(timeout()),this,SLOT(nextKey()));
 
-//  m_dock = new GhostDock(this, this);
 }
 InputEventGhost::~InputEventGhost()
 {
-//  if(m_dock)
-//    m_dock->close();
 }
 void InputEventGhost::nextKey()
 {
