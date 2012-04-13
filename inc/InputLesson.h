@@ -16,7 +16,9 @@ class InputLesson :
   Q_OBJECT
 
   public slots:
+    void reset();
     void randomize();
+    void showGhost(bool);
 
   public:
     InputLesson(const InputEvent &event, QWidget* parent = 0);
@@ -24,10 +26,12 @@ class InputLesson :
 
   private slots:
     void processEvent();
+    void completeEvent();
     void timeout();
+    void moveGhost(int from,int to);
+    void switchGhost(int which);
   private:
-	  void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
-	  void addGhost();
+	  void setupGhosts();
 
     ~InputLesson(void);
 
@@ -36,10 +40,15 @@ class InputLesson :
     int m_timeout;
     int m_location;
     InputEvent m_baseEvent;
+    QList<int> m_similarEvents;
     InputLessonTextEdit* m_lesson;
 
     InputEventGhost* m_ghost;
+    QMap<InputEventGhost*,QColor> m_ghostColors;
     InputEventManager* m_manager;
+    QPushButton* m_randomizeButton;
+    QPushButton* m_resetButton;
+    QComboBox* m_ghostComboBox;
 };
 
 class InputLessonTextEdit : public QTextEdit
@@ -48,10 +57,15 @@ class InputLessonTextEdit : public QTextEdit
 
   signals:
     void eventOccured();
-  
+    void eventComplete();
+
+  public slots:
+
   public:
     InputLessonTextEdit(const InputEvent& event, QWidget* parent = 0);
     void setInputEvent(const InputEvent& event);
+    InputEvent inputEvent() const;
+    void moveGhost(int from,int to,QColor col = Qt::blue);
   protected:
     void keyPressEvent(QKeyEvent* event);
     void mouseReleaseEvent(QMouseEvent* e);
@@ -59,7 +73,6 @@ class InputLessonTextEdit : public QTextEdit
     void deleteChar();
     void addCorrectChar(QChar chr);
     void addIncorrectChar(QChar chr);
-	  void setSelectedTextColor(QColor color, QTextCursor* cursor,bool background=false);
 
     int m_location;
     InputEvent m_baseEvent;
@@ -73,15 +86,19 @@ class InputEventGhost : public QTextEdit
 
   Q_OBJECT
 
-  public:
-    InputEventGhost(const InputEvent &event, QWidget* parent = 0);
-    ~InputEventGhost();
-
+  signals:
+    void changeLocation(int, int);
+  
+  public slots:
     void start();
     void pause();
     void stop();
-    void rewind(int msec);
     void clear();
+    void rewind(int msec=1000);
+
+  public:
+    InputEventGhost(const InputEvent &event, QWidget* parent = 0);
+    ~InputEventGhost();
 
     bool isActive() const;
     bool isComplete() const;
@@ -103,20 +120,4 @@ class InputEventGhost : public QTextEdit
     int m_location;
     bool m_running;
     //GhostDock* m_dock;
-};
-class GhostDock : public QDockWidget , private Ui::GhostDock
-{
-  Q_OBJECT
-
-    //friend InputEventGhost;
-
-  public slots:
-  void populateComboBox(bool enabled);
-
-  public:
-  GhostDock(InputEventGhost* ghost, QWidget* parent = 0);
-
-  private:
-
-  InputEventGhost* m_ghost;
 };

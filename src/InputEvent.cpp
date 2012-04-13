@@ -34,9 +34,9 @@ count& count::operator+=(const count& rhs)
  {
    return count(*this) += rhs;
  }
-InputEvent::InputEvent(void)
+InputEvent::InputEvent(void) :
+ m_processed(false)
 {
-  m_processed = false;
 }
   InputEvent::InputEvent(const QString & keys, int time)
 : m_keys(keys) ,
@@ -70,7 +70,6 @@ InputEvent::InputEvent(void)
     QDataStream s(&a, QIODevice::ReadOnly);
     s >> m_times;
   }
-  m_datetime = date;
   if(m_times.size() == 0)
     m_times.fill(0,keys.size());
   if(m_error.size() == 0)
@@ -84,43 +83,81 @@ InputEvent::~InputEvent(void)
 
 void InputEvent::process() const
 {
+ // if(!m_processed){
+    //m_counts = count();
+    //m_final.clear();
+    //m_finalErrors.clear();
+    //m_finalTimes.clear();
+    //m_wordBreaks.clear();
+    //int finalItr = 0;
+    //m_final.resize(m_keys.size());
+    //m_finalErrors.fill(false,m_keys.size());
+    //m_finalTimes.fill(0,m_keys.size());
+    //qDebug() << m_keys.size() << m_keys;
+    //QList<int> d;
+    //QMap<int,int> wordBreaks;
+    //for(int i = 0; i < m_keys.size();i++){
+    //  m_finalTimes[finalItr]+=m_times.at(i);
+    //  if(m_keys.at(i) == 0x08){ //0x08 is backspace
+    //    if(wordBreaks.contains(finalItr)) wordBreaks.remove(finalItr);
+    //    finalItr = (finalItr-1) % (finalItr + 1); //decrement until 0
+    //    m_finalErrors[finalItr]=true;
+    //  } else {
+		  //  if(i > 0 && !m_keys.at(i).isSpace() && m_keys.at(i-1).isSpace()) wordBreaks[finalItr]=i;
+    //    if(m_error.at(i)){
+    //      m_finalErrors[finalItr]=true;
+    //    }
+    //    m_final[finalItr] = m_keys.at(i);
+    //    finalItr++;
+    //  }
+    //  d << finalItr;
+    //}
+    //foreach(int loc,wordBreaks){
+    //  m_wordBreaks.append(loc);
+    //}
+    //qDebug() << finalItr << ":" << d;
+    //m_final = m_final.left(finalItr);
+    //m_finalTimes = m_finalTimes.mid(0,finalItr);
+    //m_finalErrors = m_finalErrors.mid(0,finalItr);
+    //m_counts.number = m_final.size();
+    //for(int i = 0;i<m_final.size();i++){
+    //  m_counts.error += m_finalErrors.at(i);
+    //  m_counts.totalTime += m_finalTimes.at(i);
+    //}
+//  }
+//  m_processed = true;
   if(!m_processed){
+    
+    m_counts = count();
     m_final.clear();
     m_finalErrors.clear();
     m_finalTimes.clear();
     m_wordBreaks.clear();
-    int finalItr = 0;
-    m_final.resize(m_keys.size());
-    m_finalErrors.fill(false,m_keys.size());
-    m_finalTimes.fill(0,m_keys.size());
-    qDebug() << m_keys.size() << m_keys;
-    QList<int> d;
-    for(int i = 0; i < m_keys.size();i++){
-      m_finalTimes[finalItr]+=m_times.at(i);
+
+    int backSpaces = 0;
+//    m_wordBreaks.prepend(m_keys.size()-1);
+    for(int i = m_keys.size()-1;i>=0;i--){
       if(m_keys.at(i) == 0x08){ //0x08 is backspace
-		    if(m_wordBreaks.contains(i)) m_wordBreaks.removeAt(m_wordBreaks.indexOf(i)); // TODO search from tail?
-        
-        finalItr = (finalItr-1) % (finalItr + 1); //decrement until 0
-        m_finalErrors[finalItr]=true;
+        backSpaces++;
+        m_finalErrors[0]=true;
+      } else if(backSpaces > 0){
+        backSpaces--;
+        m_counts.error++;
       } else {
-		    if(i > 0 && !m_keys.at(i).isSpace() && m_keys.at(i-1).isSpace()) m_wordBreaks.append(i);
+        m_counts.number++;
+        m_final.prepend(m_keys.at(i));
+        m_finalErrors.prepend(false);
+        m_finalTimes.prepend(m_times[i]);
+		    if(i < m_keys.size()-1 && m_keys.at(i).isSpace() && !m_final.at(1).isSpace()) m_wordBreaks.prepend(i);
         if(m_error.at(i)){
-          m_finalErrors[finalItr]=true;
+          m_finalErrors[0]=true;
+          m_counts.error++;
         }
-        m_final[finalItr] = m_keys.at(i);
-        finalItr++;
       }
-      d << finalItr;
+      m_finalTimes[0]+=m_times.at(i);
+      m_counts.totalTime+=m_times.at(i);
     }
-    qDebug() << finalItr << ":" << d;
-    m_final = m_final.left(finalItr);
-    m_finalTimes = m_finalTimes.mid(0,finalItr);
-    m_finalErrors = m_finalErrors.mid(0,finalItr);
     m_counts.number = m_final.size();
-    for(int i = 0;i<m_final.size();i++){
-      m_counts.error += m_finalErrors.at(i);
-      m_counts.totalTime += m_finalTimes.at(i);
-    }
   }
   m_processed = true;
 }
@@ -196,7 +233,7 @@ const CountHash& InputEvent::words(bool includeSpaces) const
 {
   if(includeSpaces)
     m_words.clear();
-  if(isValid() && m_words.isEmpty()){
+  if(m_processed && m_words.isEmpty()){
     int numWords = 0;
     int start = 0;
     while(start < m_final.length()-1){
@@ -300,31 +337,8 @@ count InputEvent::counts() const
 }
 InputEvent InputEvent::randomizeEvent() const
 {
-  struct word{
-    QString keys;
-    QVector<int> times;
-    QVector<bool> error;
-  };
-	int prevPos = 0;
-	QList<word> locs;
-	foreach(int pos, m_wordBreaks){
-    word w;
-    int length = pos-prevPos;
-    qDebug() << m_keys.mid(prevPos,length);
-    w.keys = m_keys.mid(prevPos,length);
-    w.times = m_times.mid(prevPos,length);
-    w.error = m_error.mid(prevPos,length);
-		locs.append(w);
-		prevPos = pos;
-	}
-  word last;
-  int start = m_wordBreaks.last();
-  int length = m_keys.size()-start;
-  qDebug() << m_keys.mid(start,length);
-  last.keys = m_keys.mid(start,length);
-  last.times = m_times.mid(start,length);
-  last.error = m_error.mid(start,length);
-
+	QList<word> locs = words2();
+  word last = locs.takeLast();
   //Shuffle words
   int i,n;
   n = (locs.end()-locs.begin());
@@ -332,7 +346,6 @@ InputEvent InputEvent::randomizeEvent() const
     int rand = int(qrand()/static_cast<double>( RAND_MAX ) * (i+1));
     qSwap (locs[i],locs[rand]); 
   }
-
   //Insert last word randomly
   int lastIns = int(qrand()/static_cast<double>( RAND_MAX ) * n);
   if(lastIns == locs.size()){
@@ -344,7 +357,6 @@ InputEvent InputEvent::randomizeEvent() const
     while(trueLast.keys.at(end).isSpace()) --end;
     end++;
     int size = trueLast.keys.size()-end;
-    qDebug() << trueLast.keys.mid(end,size);
     last.keys += trueLast.keys.mid(end,size);
     last.times += trueLast.times.mid(end,size);
     last.error += trueLast.error.mid(end,size);
@@ -366,29 +378,131 @@ InputEvent InputEvent::randomizeEvent() const
   }
   return InputEvent(keys,times,m_datetime,errors);
 }
-//InputEvent & InputEvent::operator=(const InputEvent &rhs)
+QList<InputEvent::word> InputEvent::words2() const
+{
+  QList<word> words;
+  int prevPos = 0;
+	foreach(int pos, m_wordBreaks){
+    word w;
+    int length = (pos+1)-prevPos;
+    w.keys = m_keys.mid(prevPos,length);
+    w.times = m_times.mid(prevPos,length);
+    w.error = m_error.mid(prevPos,length);
+	  words.append(w);
+		prevPos = (pos+1);
+	}
+  word last;
+  int start = m_wordBreaks.last()+1;
+  int length = m_keys.size()-start;
+  last.keys = m_keys.mid(start,length);
+  last.times = m_times.mid(start,length);
+  last.error = m_error.mid(start,length);
+  words.append(last);
+  return words;
+}
+InputEvent InputEvent::mapToPermutation(const InputEvent& input) const
+{
+  QMultiMap<QString,word> myWords,inputWords;
+  foreach(word w,words2()){
+    myWords.insert(resolveString(w.keys).trimmed(),w);
+  }
+  QString keys;
+  QVector<bool> errors;
+  QVector<int> times;
+  int spaceInsPoint = -1; // word at the end of the first won't have a space at the end
+  foreach(word w,input.words2()){
+    QString search = resolveString(w.keys).trimmed();
+    word t;
+    if(myWords.contains(search)){
+      t = myWords.take(search);
+    } else {
+      int best=-1;
+      int minDiff = INT_MAX;
+      int itr = 0;
+      foreach(QString str,myWords.keys()){
+        int i = 0;
+        int diff = 0;
+        while(i < str.size() && i < search.size()){
+          if(str.at(i) != search.at(i)){
+            diff++;
+          }
+        }
+        if(diff < minDiff){
+          best = itr;
+          minDiff = diff;
+        }
+      }
+      t = myWords.take(myWords.keys().at(itr));
+    }
+    if(!t.keys.at(t.keys.size()-1).isSpace()) spaceInsPoint = keys.size() + t.keys.size();
+    keys+=t.keys;
+    errors+=t.error;
+    times+=t.times;
+  }
+  qDebug() << keys.size() << errors.size() << times.size() << spaceInsPoint;
+  QString space = keys.at(keys.size()-1);
+  keys.insert(spaceInsPoint,keys.at(keys.size()-1));
+  errors.insert(spaceInsPoint,errors.at(errors.size()-1));
+  times.insert(spaceInsPoint,times.at(times.size()-1));
+  keys.remove(keys.size()-1,1);
+  errors.remove(errors.size()-1,1);
+  times.remove(times.size()-1,1);
+  return InputEvent(keys,times,m_datetime,errors);
+}
+//InputEvent::word InputEvent::resolveWord(const InputEvent::word& w) const
 //{
-//    if(this != &rhs){
-//      m_keys = rhs.m_keys;
-//      m_times = rhs.m_times;
-//      m_error = rhs.m_error;
-//      m_datetime = rhs.m_datetime;
-//
-//      m_processed = 0;
-//      process();
+//  word resolved;
+//  int backSpaces=0;
+//  for(int i = w.keys.size()-1; i >= 0; i--){
+//    if(w.keys.at(i) == 0x08){
+//      backSpaces++;
+//    } else if(backSpaces > 0){
+//      backSpaces--;
+//    } else {
+//      resolved.keys.prepend(w.keys.at(i));
 //    }
-//    return *this;
+//  }
+//  return(resolved);
 //}
-//InputEvent::InputEvent(const InputEvent& rhs)
-//{
-//  m_keys = rhs.m_keys;
-//  m_times = rhs.m_times;
-//  m_error = rhs.m_error;
-//  m_datetime = rhs.m_datetime;
-//
-//  m_processed = 0;
-//  process();
-//}
+
+QString InputEvent::resolveString(const QString& input) const
+{
+  QString resolved;
+  int backSpaces=0;
+  for(int i = input.size()-1; i >= 0; i--){
+    if(input.at(i) == 0x08){
+      backSpaces++;
+    } else if(backSpaces > 0){
+      backSpaces--;
+    } else {
+      resolved.prepend(input.at(i));
+    }
+  }
+  return(resolved);
+}
+InputEvent & InputEvent::operator=(const InputEvent &rhs)
+{
+    if(this != &rhs){
+      m_keys = rhs.m_keys;
+      m_times = rhs.m_times;
+      m_error = rhs.m_error;
+      m_datetime = rhs.m_datetime;
+
+      m_processed = 0;
+      process();
+    }
+    return *this;
+}
+InputEvent::InputEvent(const InputEvent& rhs)
+{
+  m_keys = rhs.m_keys;
+  m_times = rhs.m_times;
+  m_error = rhs.m_error;
+  m_datetime = rhs.m_datetime;
+
+  m_processed = 0;
+  process();
+}
 ////////////////////////////////////////////////////////////////////////////////
 // InputEventManager
 ////////////////////////////////////////////////////////////////////////////////

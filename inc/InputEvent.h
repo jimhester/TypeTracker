@@ -31,6 +31,12 @@ Q_DECLARE_METATYPE(CountHash)
 
   class InputEvent
 {
+  struct word{
+    QString keys;
+    QVector<int> times;
+    QVector<bool> error;
+  };
+
   public:
     InputEvent(void);
     InputEvent(const QString & keys, int time=0);
@@ -57,14 +63,18 @@ Q_DECLARE_METATYPE(CountHash)
     const CountHash& words(bool includeSpaces=false) const;
     count counts() const;
     InputEvent randomizeEvent() const;
+    InputEvent mapToPermutation(const InputEvent& input) const;
     bool operator==(const InputEvent& event);
 
-    //InputEvent(const InputEvent& rhs);
-    //InputEvent & operator=(const InputEvent &rhs);
+    InputEvent(const InputEvent& rhs);
+    InputEvent & operator=(const InputEvent &rhs);
 
   private:
     void process() const;
-
+//    word resolveWord(const word& w) const;
+    QString resolveString(const QString& input) const;
+    QList<word> words2() const;
+    
     enum Statistics {
       TotalTime,
       TrueWordsPerMinute,
