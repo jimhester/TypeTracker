@@ -28,10 +28,14 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
 
     public slots:
       void generateLessons();
+      void readLessons();
+      void writeLessons();
+      void setHook();
+      void releaseHook();
 
   public:
     TypeTracker();
-    //~TypeTracker();
+    ~TypeTracker();
     private slots:
       void endInputEvent();
     void createAnalysis();
@@ -59,6 +63,7 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
     static QWidget* app;
 #ifdef Q_WS_WIN
     friend LRESULT CALLBACK HookProc(int nCode, WPARAM wParam, LPARAM lParam);
+    HHOOK m_hook;
 #endif
 
     InputEvent buf;

@@ -1,4 +1,5 @@
 #include "InputLesson.h"
+#include <QtGui>
 #include <QBoxLayout>
 #include <QTextEdit>
 #include <QKeyEvent>
@@ -92,7 +93,9 @@ void InputLesson::completeEvent()
   if(evt.isValid()){
     evt.setDate(QDateTime::currentDateTime());
     m_manager->addInputEvent(evt);
+    
     //TODO display stats about event
+    QMessageBox::information(this, tr("Lesson Complete"), QDialog::tr("NWP: %1\n% Correct: %2").arg(evt.normalizedWordsPerMinute()).arg(evt.percentCorrect()));
   }
 }
 void InputLesson::setManager(InputEventManager* manager)
@@ -133,8 +136,9 @@ void InputLesson::setupGhosts()
       ghosts.append(new InputEventGhost(m_manager->InputEvents().at(max.first).mapToPermutation(m_baseEvent),this));
     }
     InputEventFilterModel* filter = new InputEventFilterModel(m_manager->inputEventModel(),m_similarEvents,this);
-    m_ghostComboBox->setModel(filter);
-    m_ghostComboBox->setModelColumn(4);
+    PrecisionModel* precision = new PrecisionModel(filter,this);
+    m_ghostComboBox->setModel(precision);
+    m_ghostComboBox->setModelColumn(3);
     m_ghostComboBox->setCurrentIndex(currentEventIdx);
     int itr=0;
     foreach(InputEventGhost* ghost, ghosts){
@@ -144,7 +148,7 @@ void InputLesson::setupGhosts()
       connect(m_timer, SIGNAL(timeout()), ghost, SLOT(pause()));
       connect(m_randomizeButton, SIGNAL(clicked() ),ghost, SLOT(clear()));
       connect(m_resetButton, SIGNAL(clicked() ),ghost, SLOT(clear()));
-      connect(m_lesson, SIGNAL(eventCompleted() ), ghost, SLOT(stop()));
+      connect(m_lesson, SIGNAL(eventComplete() ), ghost, SLOT(stop()));
       itr++;
     }
   }
@@ -187,11 +191,14 @@ void InputLessonTextEdit::setInputEvent(const InputEvent& event)
   m_baseEvent = event;
   m_location = 0;
   m_buf.clear();
-  setFontPointSize(pointSize);
-  setTextColor(Qt::gray);
-  setTextBackgroundColor(Qt::white);
+  QTextCharFormat fmt = this->textCursor().charFormat();
+  fmt.setFontUnderline(false);
+  fmt.setForeground(Qt::gray);
+  fmt.setBackground(Qt::white);
+  mergeCurrentCharFormat(fmt);
   setTextInteractionFlags(Qt::TextEditable);
   setText(m_baseEvent.str());
+  setFocus();
 }
 InputEvent InputLessonTextEdit::inputEvent() const
 {
@@ -275,6 +282,7 @@ void InputLessonTextEdit::addIncorrectChar(QChar chr)
 }
 void InputLessonTextEdit::moveGhost(int from,int to,QColor col)
 {
+  if(from < 0) from = 0;
   QTextCursor cursor = textCursor();
   QTextCharFormat fmt;
   cursor.setPosition(from);
@@ -380,4 +388,20 @@ void InputEventGhost::setEvent(const InputEvent& event)
 const InputEvent* InputEventGhost::event() const
 {
   return &m_event;
+}
+PrecisionModel::PrecisionModel(QAbstractItemModel* sourceModel, QObject* parent) :
+  QIdentityProxyModel(parent),
+  m_precision(2)
+{
+  setSourceModel(sourceModel);
+}
+void PrecisionModel::setPrecision(int precision)
+{
+  m_precision = precision;
+}
+QVariant PrecisionModel::data(const QModelIndex &index, int role) const
+{
+  if (role != Qt::DisplayRole)
+    return QIdentityProxyModel::data(index, role);
+  return QString::number(QIdentityProxyModel::data(index,role).toDouble(),'f',m_precision);
 }

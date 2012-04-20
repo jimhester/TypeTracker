@@ -95,6 +95,7 @@ Q_DECLARE_METATYPE(CountHash)
     mutable QString m_final;
     mutable QVector<bool> m_finalErrors;
     mutable QVector<int> m_finalTimes;
+    mutable bool m_allowSpace;
     mutable QHash<int, CountHash> m_substr;
     mutable CountHash m_words;
     mutable QList<int> m_wordBreaks;
@@ -172,8 +173,9 @@ class InputEventModel : public QAbstractTableModel
   public:
   enum Roles {
     ItemOffsetRole = Qt::UserRole + 1,
-    WordRole = Qt::UserRole + 2,
-    SubstrRole = Qt::UserRole + 3, //the size of the substr is role #-SubstrRole+1
+    AggregateRole = Qt::UserRole + 2,
+//    WordRole = Qt::UserRole + 2,
+//    SubstrRole = Qt::UserRole + 3 //the size of the substr is role #-SubstrRole+1
   };
 
   InputEventModel(InputEventManager *InputEvents, QObject *parent = 0);
@@ -182,6 +184,7 @@ class InputEventModel : public QAbstractTableModel
   int columnCount(const QModelIndex &parent = QModelIndex()) const;
   int rowCount(const QModelIndex &parent = QModelIndex()) const;
   bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
+  InputEventManager* inputEventManager();
 
   private:
   InputEventManager *m_InputEvents;
@@ -193,12 +196,8 @@ class InputEventTreeModel : public QAbstractProxyModel
 {
   Q_OBJECT
 
-    public slots:
-    void setSubstrLength(double substrLength);
-  void setSubstrLength(int substrLength);
-
   public:
-  InputEventTreeModel(QAbstractItemModel *sourceModel, QObject *parent = 0, int substrLength = -1);
+  InputEventTreeModel(QAbstractItemModel *sourceModel, QObject *parent = 0);
   QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
   int columnCount(const QModelIndex &parent) const;
   int rowCount(const QModelIndex &parent = QModelIndex()) const;
@@ -223,8 +222,6 @@ class InputEventTreeModel : public QAbstractProxyModel
   mutable QList< QList<int> > m_sourceRowMap;
   mutable QStringList m_substr;
   mutable CountHash m_substrSums;
-  int m_substrLength;
-
 };
 
 //Filters selected rows

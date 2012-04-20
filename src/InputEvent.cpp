@@ -35,11 +35,13 @@ count& count::operator+=(const count& rhs)
    return count(*this) += rhs;
  }
 InputEvent::InputEvent(void) :
- m_processed(false)
+ m_processed(false),
+ m_allowSpace(false)
 {
 }
   InputEvent::InputEvent(const QString & keys, int time)
 : m_keys(keys) ,
+  m_allowSpace(false) ,
   m_processed(false)
 {
   m_times.fill(time,keys.size());
@@ -51,6 +53,7 @@ InputEvent::InputEvent(void) :
   m_times(times) ,
   m_datetime(date) ,
   m_error(errors) ,
+  m_allowSpace(false) ,
   m_processed(false)
 {
   if(m_times.size() == 0)
@@ -63,6 +66,7 @@ InputEvent::InputEvent(void) :
   InputEvent::InputEvent(const QString & keys, const QByteArray & times, const QDateTime & date)
 : m_keys(keys) ,
   m_datetime(date) ,
+  m_allowSpace(false) ,
   m_processed(false)
 {
   QByteArray a = times;
@@ -83,51 +87,8 @@ InputEvent::~InputEvent(void)
 
 void InputEvent::process() const
 {
- // if(!m_processed){
-    //m_counts = count();
-    //m_final.clear();
-    //m_finalErrors.clear();
-    //m_finalTimes.clear();
-    //m_wordBreaks.clear();
-    //int finalItr = 0;
-    //m_final.resize(m_keys.size());
-    //m_finalErrors.fill(false,m_keys.size());
-    //m_finalTimes.fill(0,m_keys.size());
-    //qDebug() << m_keys.size() << m_keys;
-    //QList<int> d;
-    //QMap<int,int> wordBreaks;
-    //for(int i = 0; i < m_keys.size();i++){
-    //  m_finalTimes[finalItr]+=m_times.at(i);
-    //  if(m_keys.at(i) == 0x08){ //0x08 is backspace
-    //    if(wordBreaks.contains(finalItr)) wordBreaks.remove(finalItr);
-    //    finalItr = (finalItr-1) % (finalItr + 1); //decrement until 0
-    //    m_finalErrors[finalItr]=true;
-    //  } else {
-		  //  if(i > 0 && !m_keys.at(i).isSpace() && m_keys.at(i-1).isSpace()) wordBreaks[finalItr]=i;
-    //    if(m_error.at(i)){
-    //      m_finalErrors[finalItr]=true;
-    //    }
-    //    m_final[finalItr] = m_keys.at(i);
-    //    finalItr++;
-    //  }
-    //  d << finalItr;
-    //}
-    //foreach(int loc,wordBreaks){
-    //  m_wordBreaks.append(loc);
-    //}
-    //qDebug() << finalItr << ":" << d;
-    //m_final = m_final.left(finalItr);
-    //m_finalTimes = m_finalTimes.mid(0,finalItr);
-    //m_finalErrors = m_finalErrors.mid(0,finalItr);
-    //m_counts.number = m_final.size();
-    //for(int i = 0;i<m_final.size();i++){
-    //  m_counts.error += m_finalErrors.at(i);
-    //  m_counts.totalTime += m_finalTimes.at(i);
-    //}
-//  }
-//  m_processed = true;
   if(!m_processed){
-    
+ 
     m_counts = count();
     m_final.clear();
     m_finalErrors.clear();
@@ -135,8 +96,11 @@ void InputEvent::process() const
     m_wordBreaks.clear();
 
     int backSpaces = 0;
-//    m_wordBreaks.prepend(m_keys.size()-1);
+    m_finalErrors.prepend(false);
+    m_finalTimes.prepend(0);
     for(int i = m_keys.size()-1;i>=0;i--){
+      m_finalTimes[0]+=m_times.at(i);
+      m_counts.totalTime+=m_times.at(i);
       if(m_keys.at(i) == 0x08){ //0x08 is backspace
         backSpaces++;
         m_finalErrors[0]=true;
@@ -146,16 +110,14 @@ void InputEvent::process() const
       } else {
         m_counts.number++;
         m_final.prepend(m_keys.at(i));
-        m_finalErrors.prepend(false);
-        m_finalTimes.prepend(m_times[i]);
-		    if(i < m_keys.size()-1 && m_keys.at(i).isSpace() && !m_final.at(1).isSpace()) m_wordBreaks.prepend(i);
+       if(i < m_keys.size()-1 && m_keys.at(i).isSpace() && !m_final.at(1).isSpace()) m_wordBreaks.prepend(i);
         if(m_error.at(i)){
           m_finalErrors[0]=true;
           m_counts.error++;
         }
+        m_finalErrors.prepend(false);
+        m_finalTimes.prepend(m_times[i]);
       }
-      m_finalTimes[0]+=m_times.at(i);
-      m_counts.totalTime+=m_times.at(i);
     }
     m_counts.number = m_final.size();
   }
@@ -197,6 +159,10 @@ void InputEvent::addKey(const QString & key, int msec,bool isCorrect)
 
 const CountHash& InputEvent::substr(int size,bool allowSpace) const
 {
+  if(allowSpace != m_allowSpace){
+    m_substr.clear(); 
+    m_allowSpace = allowSpace;
+  }
   if(isValid() && !m_substr.contains(size)){
     CountHash ret;
     int loc = 0;
@@ -229,10 +195,12 @@ const CountHash& InputEvent::substr(int size,bool allowSpace) const
   }
   return(m_substr[size]);
 }
-const CountHash& InputEvent::words(bool includeSpaces) const
+const CountHash& InputEvent::words(bool allowSpace) const
 {
-  if(includeSpaces)
+  if(allowSpace != m_allowSpace){
     m_words.clear();
+    m_allowSpace = allowSpace;
+  }
   if(m_processed && m_words.isEmpty()){
     int numWords = 0;
     int start = 0;
@@ -247,7 +215,7 @@ const CountHash& InputEvent::words(bool includeSpaces) const
               && m_final.at(end+1).isLetterOrNumber()))){
         end++;
       }
-      while(includeSpaces && m_final.at(end).isSpace()){
+      while(end < m_final.size() && allowSpace && m_final.at(end).isSpace()){
         end++;
       }
       QString word = m_final.mid(start,end-start).toLower();
@@ -337,6 +305,7 @@ count InputEvent::counts() const
 }
 InputEvent InputEvent::randomizeEvent() const
 {
+  qsrand(QTime::currentTime().msec()); // seed with number of msec should be random enough :)
 	QList<word> locs = words2();
   word last = locs.takeLast();
   //Shuffle words
@@ -354,7 +323,7 @@ InputEvent InputEvent::randomizeEvent() const
     //Have to move the spaces after the shuffled last to the new last
     word &trueLast = locs.last();
     int end = trueLast.keys.size()-1;
-    while(trueLast.keys.at(end).isSpace()) --end;
+    while(end > 0 && trueLast.keys.at(end).isSpace()) --end;
     end++;
     int size = trueLast.keys.size()-end;
     last.keys += trueLast.keys.mid(end,size);
@@ -426,11 +395,12 @@ InputEvent InputEvent::mapToPermutation(const InputEvent& input) const
           if(str.at(i) != search.at(i)){
             diff++;
           }
+          i++;
         }
         if(diff < minDiff){
           best = itr;
           minDiff = diff;
-        }
+        }      
       }
       t = myWords.take(myWords.keys().at(itr));
     }
@@ -439,7 +409,7 @@ InputEvent InputEvent::mapToPermutation(const InputEvent& input) const
     errors+=t.error;
     times+=t.times;
   }
-  qDebug() << keys.size() << errors.size() << times.size() << spaceInsPoint;
+//  qDebug() << keys.size() << errors.size() << times.size() << spaceInsPoint;
   QString space = keys.at(keys.size()-1);
   keys.insert(spaceInsPoint,keys.at(keys.size()-1));
   errors.insert(spaceInsPoint,errors.at(errors.size()-1));
@@ -449,21 +419,6 @@ InputEvent InputEvent::mapToPermutation(const InputEvent& input) const
   times.remove(times.size()-1,1);
   return InputEvent(keys,times,m_datetime,errors);
 }
-//InputEvent::word InputEvent::resolveWord(const InputEvent::word& w) const
-//{
-//  word resolved;
-//  int backSpaces=0;
-//  for(int i = w.keys.size()-1; i >= 0; i--){
-//    if(w.keys.at(i) == 0x08){
-//      backSpaces++;
-//    } else if(backSpaces > 0){
-//      backSpaces--;
-//    } else {
-//      resolved.keys.prepend(w.keys.at(i));
-//    }
-//  }
-//  return(resolved);
-//}
 
 QString InputEvent::resolveString(const QString& input) const
 {
@@ -728,11 +683,7 @@ QVariant InputEventModel::data(const QModelIndex &index, int role) const
     return QVariant();
 
   const InputEvent &item = lst.at(index.row());
-  if(role >= InputEventModel::SubstrRole)
-    return QVariant::fromValue<CountHash>(item.substr(role - SubstrRole+1));
   switch (role) {
-    case WordRole:
-      return QVariant::fromValue<CountHash>(item.words());
     case ItemOffsetRole:
       return index.row();
     case Qt::DisplayRole:
@@ -790,9 +741,8 @@ bool InputEventModel::removeRows(int row, int count, const QModelIndex &parent)
 ////////////////////////////////////////////////////////////////////////////////
 //Begin InputEventTreeModel
 ////////////////////////////////////////////////////////////////////////////////
-InputEventTreeModel::InputEventTreeModel(QAbstractItemModel *sourceModel, QObject *parent, int substrLength)
+InputEventTreeModel::InputEventTreeModel(QAbstractItemModel *sourceModel, QObject *parent)
   : QAbstractProxyModel(parent)
-    , m_substrLength(substrLength)
 {
   setSourceModel(sourceModel);
 }
@@ -854,7 +804,7 @@ int InputEventTreeModel::rowCount(const QModelIndex &parent) const
     int totalRows = sourceModel()->rowCount();
     QHash<QString,QList<int> > map;
     for (int i = 0; i < totalRows; ++i) {
-      CountHash substrings = sourceModel()->index(i, 0).data(InputEventModel::SubstrRole + m_substrLength).value<CountHash>();
+      CountHash substrings = sourceModel()->index(i, 0).data(InputEventModel::AggregateRole).value<CountHash>();
       foreach(QString substring, substrings.keys()){
         map[substring] << i;
         m_substrSums[substring] += substrings.value(substring);
@@ -887,8 +837,8 @@ QModelIndex InputEventTreeModel::mapFromSource(const QModelIndex &sourceIndex) c
 
   if (m_sourceRowMap.isEmpty())
     rowCount(QModelIndex());
-  //QHash<QString, QVariant> substrings = sourceIndex.data(InputEventModel::SubstrRole + m_substrLength).toHash();
-  CountHash substrings = sourceIndex.data(InputEventModel::SubstrRole + m_substrLength).value<CountHash>();
+  //QHash<QString, QVariant> substrings = sourceIndex.data(InputEventModel::AggregateRole + m_substrLength).toHash();
+  CountHash substrings = sourceIndex.data(InputEventModel::AggregateRole).value<CountHash>();
   int substrIdx = m_substr.indexOf(substrings.keys().at(0));
   int row = m_sourceRowMap[substrIdx].indexOf(sourceIndex.row());
   return createIndex(row, sourceIndex.column(), substrIdx+1);
@@ -988,16 +938,21 @@ void InputEventTreeModel::sourceRowsRemoved(const QModelIndex &parent, int start
   return;
 }
 
-void InputEventTreeModel::setSubstrLength(int substrLength)
-{
-  m_substrLength = substrLength;
-  sourceReset();
-}
-void InputEventTreeModel::setSubstrLength(double substrLength)
-{
-  m_substrLength = substrLength;
-  sourceReset();
-}
+//void InputEventTreeModel::setSubstrLength(int substrLength)
+//{
+//  m_substrLength = substrLength;
+//  sourceReset();
+//}
+//void InputEventTreeModel::setSubstrLength(double substrLength)
+//{
+//  m_substrLength = substrLength;
+//  sourceReset();
+//}
+//void InputEventTreeModel::setAllowSpaces(bool value)
+//{
+//  m_allowSpaces = value;
+//  sourceReset();
+//}
 ////////////////////////////////////////////////////////////////////////////////
 //End InputEventTreeModel
 ////////////////////////////////////////////////////////////////////////////////

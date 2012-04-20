@@ -3,6 +3,7 @@
 #include <QWidget>
 #include <QTextEdit>
 #include <QDockWidget>
+#include <qidentityproxymodel.h>
 #include "InputEvent.h"
 #include "ui_ghostDock.h"
 
@@ -120,4 +121,18 @@ class InputEventGhost : public QTextEdit
     int m_location;
     bool m_running;
     //GhostDock* m_dock;
+};
+
+class PrecisionModel : public QIdentityProxyModel
+{
+  Q_OBJECT
+
+public:
+  PrecisionModel(QAbstractItemModel* sourceModel, QObject* parent);
+
+  void setPrecision(int precision);
+  QVariant data(const QModelIndex &index, int role) const;
+
+private:
+  int m_precision;
 };

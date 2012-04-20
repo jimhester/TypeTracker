@@ -14,6 +14,7 @@
 #include "ttTableView.h"
 #include "EditTableView.h"
 #include "InputLesson.h"
+#include "substringAnalysis.h"
 #include <qwt_slider.h>
 
 #ifdef Q_WS_WIN 
@@ -78,16 +79,53 @@ QWidget* TypeTracker::app = 0;
   tab->setMovable(true);
   this->show();
   //connect(eventTable, SIGNAL(selectionRightClicked(const QModelIndexList &)),this,SLOT(createSubstrAnalysis(const QModelIndexList &)));
-
+  setHook();
   app = this;
-#ifdef Q_WS_WIN
-  if (SetWindowsHookEx(WH_KEYBOARD_LL, HookProc, qWinAppInst(), NULL) == 0)
-    qDebug() << "Hook failed for application instance" << qWinAppInst() << "with error:" << GetLastError();
-#endif
   createActions();
+}
+TypeTracker::~TypeTracker()
+{
+  releaseHook();
+}
+void TypeTracker::setHook()
+{
+  #ifdef Q_WS_WIN
+  m_hook = SetWindowsHookEx(WH_KEYBOARD_LL, HookProc, qWinAppInst(), NULL);
+  if(m_hook == 0)
+    qDebug() << "Hook failed for application instance" << qWinAppInst() << "with error:" << GetLastError();
+  #endif
+}
+void TypeTracker::releaseHook()
+{
+  #ifdef Q_WS_WIN
+  UnhookWindowsHookEx(m_hook);
+  #endif
+}
+void TypeTracker::readLessons()
+{
+  QFile file("lessons.txt");
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+         return;
+
+  QTextStream in(&file);
+  while (!in.atEnd()) {
+      QString line = in.readLine();
+      m_lessons.append(line);
+  }
+}
+void TypeTracker::writeLessons()
+{
+  QFile file("lessons.txt");
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+         return;
+  QTextStream out(&file);
+  foreach(QString lesson, m_lessons){
+    out << lesson << "\n";
+  }
 }
 void TypeTracker::generateLessons()
 {
+  readLessons();
   typedef QPair<QString,QList<int> > simPair;
   const QList<InputEvent>& events = m_manager->InputEvents();
   QMap<int,simPair> similarities;
@@ -104,6 +142,7 @@ void TypeTracker::generateLessons()
     if(!m_lessons.contains(val.first) && val.second.length() > 1)
       m_lessons.append(val.first);
   }
+  writeLessons();
 }
 
 
@@ -144,6 +183,7 @@ ttTreeView* TypeTracker::setupLessonTreeView(const QString &title)
   view->setWindowTitle(title);
   view->setSortingEnabled(true);
   view->setColumnWidth(0,20);
+  view->setSelectionMode(QAbstractItemView::MultiSelection);
   return view;
 }
 void TypeTracker::keyPressEvent(QKeyEvent *event)
@@ -222,13 +262,8 @@ void TypeTracker::createAnalysis()
     }
     if(!rows.isEmpty()){
       InputEventFilterModel * filter = new InputEventFilterModel(m_manager->inputEventModel(),rows,this);
-      InputEventTreeModel * treeModel = new InputEventTreeModel(filter,this);
-      QSortFilterProxyModel *sort = new QSortFilterProxyModel(this);
-      sort->setSourceModel(treeModel);
-      ttTreeView* tree = new ttTreeView(this);
-      tree->setSortingEnabled(true);
-      tree->setModel(sort);
-      tab->addTab(tree,"Analysis");
+      SubstringAnalysis* substring = new SubstringAnalysis(filter,this);
+      tab->addTab(substring,"Analysis");
     }
   }
 }
