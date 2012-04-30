@@ -123,6 +123,40 @@ void TypeTracker::writeLessons()
     out << lesson << "\n";
   }
 }
+void TypeTracker::exportSelection()
+{
+  if(QAbstractItemView* view = tab->currentWidget()->findChild<QAbstractItemView*>()){
+    QModelIndexList indexes = view->selectionModel()->selectedIndexes();
+    if(!indexes.isEmpty()){
+     QString fileName = QFileDialog::getSaveFileName(this,
+     tr("Save Selected"), "", tr("Comma Separted Text (*.csv)"));
+      QFile data(fileName);
+      if (data.open(QFile::WriteOnly | QFile::Truncate)) {
+        QTextStream out(&data);
+        QList< QList< QString > > output;
+        foreach(const QModelIndex& idx, indexes){
+          while(output.size() <= idx.row()){
+            output.append(QList<QString>());
+          }       
+          for(int i =0;i<output.size();i++){
+            while(output.at(i).size() <= idx.column()){
+              output[i].append("");
+            }
+          }
+          qDebug() << idx.row() << idx.column() << output.size() << output.at(output.size()-1).size();
+          output[idx.row()][idx.column()]=idx.data().toString();
+        }
+        for(int i = 0;i < output.size();i++){
+          for(int j = 0;j < output.at(i).size();j++){
+            out << "\"" << output.at(i).at(j) << "\",";
+          }
+          out << "\n";
+        }
+      }
+    data.close();
+    }
+  }
+}
 void TypeTracker::generateLessons()
 {
   readLessons();
@@ -204,7 +238,6 @@ void TypeTracker::endInputEvent()
 {
   if(buf.isValid()){
     buf.setDate(QDateTime::currentDateTime());
-    qDebug() << buf.date();
     m_manager->addInputEvent(buf);
   }
   buf.clear();
@@ -220,7 +253,7 @@ void TypeTracker::createActions()
   actionCopy->setShortcuts(QKeySequence::Copy);
   actionCopy->setStatusTip(tr("Copy the current selection's contents to the "
         "clipboard"));
-  connect(actionCopy, SIGNAL(triggered()), this, SLOT(copy()));
+  connect(actionCopy, SIGNAL(triggered()), this, SLOT(exportSelection()));
 
   actionPaste->setShortcuts(QKeySequence::Paste);
   actionPaste->setStatusTip(tr("Paste the clipboard's contents into the current "

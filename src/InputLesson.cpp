@@ -213,11 +213,11 @@ void InputLessonTextEdit::keyPressEvent(QKeyEvent* event)
     msec = 0;
   if(!event->text().isEmpty()){
     if(event->text() == QChar(0x08)){
-      m_buf.addKey(event->text(),msec,false);
+      m_buf.addKey(event->text(),msec,true);
       deleteChar();
     } else {
       bool correct = event->text() == m_baseEvent.str().at(m_location);
-      m_buf.addKey(event->text(),msec,correct);
+      m_buf.addKey(event->text(),msec,true);
       if(correct){
         addCorrectChar(event->text().at(0));
       } else {

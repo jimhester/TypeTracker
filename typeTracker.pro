@@ -12,5 +12,7 @@ win32:LIBS += User32.lib
 CONFIG += qt
 CONFIG += qwt
 CONFIG += debug
+CONFIG += qxt
 
 QT += sql
+QXT = core gui

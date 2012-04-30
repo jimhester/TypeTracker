@@ -402,14 +402,14 @@ InputEvent InputEvent::mapToPermutation(const InputEvent& input) const
           minDiff = diff;
         }      
       }
-      t = myWords.take(myWords.keys().at(itr));
+      if(myWords.size() > 0)
+        t = myWords.take(myWords.keys().at(itr));
     }
-    if(!t.keys.at(t.keys.size()-1).isSpace()) spaceInsPoint = keys.size() + t.keys.size();
+    if(t.keys.size() > 0 && !t.keys.at(t.keys.size()-1).isSpace()) spaceInsPoint = keys.size() + t.keys.size();
     keys+=t.keys;
     errors+=t.error;
     times+=t.times;
   }
-//  qDebug() << keys.size() << errors.size() << times.size() << spaceInsPoint;
   QString space = keys.at(keys.size()-1);
   keys.insert(spaceInsPoint,keys.at(keys.size()-1));
   errors.insert(spaceInsPoint,errors.at(errors.size()-1));

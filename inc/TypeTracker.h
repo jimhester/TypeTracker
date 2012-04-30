@@ -32,6 +32,7 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
       void writeLessons();
       void setHook();
       void releaseHook();
+      void exportSelection();
 
   public:
     TypeTracker();

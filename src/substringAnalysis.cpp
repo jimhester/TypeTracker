@@ -1,5 +1,6 @@
 #include "substringAnalysis.h"
 #include "ttTreeView.h"
+#include "filterModel.h"
 
 SubstringAnalysis::SubstringAnalysis(QAbstractItemModel* model, QWidget* parent) : QWidget(parent)
   , m_view(0)
@@ -10,11 +11,11 @@ SubstringAnalysis::SubstringAnalysis(QAbstractItemModel* model, QWidget* parent)
   for(int i = 0;i< model->rowCount();i++){
     m_rows << i;
   }
-  m_filter = new InputEventFilterModel(model,m_rows,this);
-  m_substr = new SubstringModel(m_filter,this);
+  m_substr = new SubstringModel(model,this);
   m_tree = new InputEventTreeModel(m_substr,this);
+  FilterModelWidget* filter = new FilterModelWidget(m_tree,this);
   QSortFilterProxyModel *sort = new QSortFilterProxyModel(this);
-  sort->setSourceModel(m_tree);
+  sort->setSourceModel(filter->model());
   ttTreeView* treeView = new ttTreeView(this);
   treeView->setSortingEnabled(true);
   treeView->setModel(sort);
@@ -36,9 +37,13 @@ SubstringAnalysis::SubstringAnalysis(QAbstractItemModel* model, QWidget* parent)
 
   connect(slider,SIGNAL(valueChanged(int)),m_substr,SLOT(setSubstringLength(int)));
 
-  QHBoxLayout* layout = new QHBoxLayout;
-  layout->addWidget(treeView);
-  layout->addLayout(controlLayout);
+  QGridLayout* layout = new QGridLayout;
+  layout->addWidget(treeView,0,0);
+  layout->addLayout(controlLayout,0,1);
+
+
+  layout->addWidget(filter,1,0);
+
   setLayout(layout);
 }
 
