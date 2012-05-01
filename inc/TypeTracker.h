@@ -42,11 +42,7 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
     void createAnalysis();
     void createLesson();
     void closeTab(int);
-    //void copy();
-    //	void remove();
-    //void eventTableClicked(const QModelIndex & index);
   protected:	
-    //bool TypeTracker::eventFilter(QObject *object, QEvent *event);
     void keyPressEvent( QKeyEvent *event);
     void contextMenuEvent(QContextMenuEvent *event);
     void closeEvent(QCloseEvent *event);
@@ -58,8 +54,7 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
     void writeSettings();
 
     EditTableView* setupTableView(const QString &title);
-    ttTreeView* setupTreeView(const QString &title);
-    ttTreeView* setupLessonTreeView(const QString &title);
+    QTreeView* setupLessonTreeView(const QString &title);
 
     static QWidget* app;
 #ifdef Q_WS_WIN
@@ -77,13 +72,12 @@ class TypeTracker : public QMainWindow, private Ui::MainWindow
 
     QTabWidget *tab;
     EditTableView *eventTable;
-    InputEventTreeModel* m_treeModel;
-    ttTreeView *m_eventTree;
     InputEventManager* m_manager;
+    InputEventLessonModel *m_lessonModel;
 
     QAction* a_remove;
 
-    QStringList m_lessons;
+    lessonList m_lessons;
 };
 
 #ifdef Q_WS_WIN

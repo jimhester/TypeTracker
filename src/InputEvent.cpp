@@ -989,11 +989,9 @@ bool InputEventFilterModel::removeRows ( int row, int count, const QModelIndex &
 ////////////////////////////////////////////////////////////////////////////////
 //Begin InputEventLessonModel
 ////////////////////////////////////////////////////////////////////////////////
-  InputEventLessonModel::InputEventLessonModel(QAbstractItemModel *sourceModel, InputEventManager *InputEvents, QObject *parent, const QStringList & lessons,double similarity)
+  InputEventLessonModel::InputEventLessonModel(QAbstractItemModel *sourceModel, InputEventManager *InputEvents, QObject *parent)
   : QAbstractProxyModel(parent)
   , m_InputEvents(InputEvents)
-  , m_lessons(lessons)
-  , m_lessonSimilarity(similarity)
 {
   setSourceModel(sourceModel);
 }
@@ -1002,49 +1000,55 @@ QVariant InputEventLessonModel::headerData(int section, Qt::Orientation orientat
 {
   switch(section){
     case 0:
-      return "Lesson";
+      return "Title";
     case 1:
-      return "#";
+      return "Lesson";
     case 2:
-      return "Avg. Speed";
+      return "#";
     case 3:
+      return "Avg. Speed";
+    case 4:
       return "Avg. % Correct";
   }
-  return sourceModel()->headerData(section-4, orientation, role);
+  return sourceModel()->headerData(section-m_headerSize, orientation, role);
 }
 
 QVariant InputEventLessonModel::data(const QModelIndex &index, int role) const
 {
-  if ((role == Qt::EditRole || role == Qt::DisplayRole)) {
-    int start = index.internalId();
-    if (start == 0) { //Lessons
+  if(!index.isValid())
+    return QVariant();
+//  qDebug() << "data:" << role << index.row() << index.column() << index.internalId();
+  int start = index.internalId();
+  if (start == 0) { //Lessons
+    if ((role == Qt::EditRole || role == Qt::DisplayRole)) {
       switch(index.column()){
         case 0:
-          if(index.row() == m_lessons.size()){
+          if(index.row() == m_lessons.size())
             return "Singletons";
-          }
-          return m_lessons[index.row()];
+          return m_lessons.at(index.row()).title;
         case 1:
-          return m_sourceRowCache.at(index.row()).size();
+          if(index.row() == m_lessons.size())
+            return "";
+          return m_lessons.at(index.row()).text;
         case 2:
-          return (double)m_lessonSums.at(index.row()).number/m_lessonSums.at(index.row()).totalTime*60000/5;
+          return m_sourceRowCache.at(index.row()).size();
         case 3:
+          return (double)m_lessonSums.at(index.row()).number/m_lessonSums.at(index.row()).totalTime*60000/5;
+        case 4:
           return 100-(m_lessonSums.at(index.row()).error/double(m_lessonSums.at(index.row()).number))*100;
       }
       return QVariant();
     }
   }
-  int column = index.column() - 4;
-  if(role >= Qt::UserRole){
-    if(column < 0)
+  int column = index.column() - m_headerSize;
+  if(role >= Qt::UserRole && column < 0)
       column = 0;
-  }
   return QAbstractProxyModel::data(index.sibling(index.row(),column),role);
 }
 
 int InputEventLessonModel::columnCount(const QModelIndex &parent) const
 {
-  return sourceModel()->columnCount(mapToSource(parent)) + 4;
+  return sourceModel()->columnCount(mapToSource(parent)) + m_headerSize;
 }
 
 int InputEventLessonModel::rowCount(const QModelIndex &parent) const
@@ -1066,7 +1070,7 @@ int InputEventLessonModel::rowCount(const QModelIndex &parent) const
       list.append(i);
     }
     for(int itr = 0;itr < m_lessons.size();++itr){
-      QList<int> similar = m_InputEvents->similarEvents(m_lessons.at(itr));
+      QList<int> similar = m_InputEvents->similarEvents(m_lessons.at(itr).text);
       count lessonCount;
       int rowNum = 0;
       foreach(int i,similar){
@@ -1103,14 +1107,21 @@ int InputEventLessonModel::rowCount(const QModelIndex &parent) const
 
 QModelIndex InputEventLessonModel::mapToSource(const QModelIndex &proxyIndex) const
 {
+  if(!proxyIndex.isValid())
+    return QModelIndex();
+  //qDebug() << "mapToSource:" << proxyIndex.row() << proxyIndex.column() << proxyIndex.internalId();
   int offset = proxyIndex.internalId();
   if (offset == 0)
-    return QModelIndex();
+    return QModelIndex();//proxyIndex;sourceModel()->index(m_sourceRowCache[proxyIndex.row()][0],proxyIndex.column());
   return sourceModel()->index(m_sourceRowCache[offset-1][proxyIndex.row()], proxyIndex.column());
 }
-
+QModelIndex InputEventLessonModel::buddy(const QModelIndex &index) const
+{
+  return index;
+}
 QModelIndex InputEventLessonModel::mapFromSource(const QModelIndex &sourceIndex) const
 {
+//  qDebug() << "mapFromSource:" << sourceIndex.row() << sourceIndex.column();
   if (!sourceIndex.isValid())
     return QModelIndex();
 
@@ -1151,9 +1162,13 @@ bool InputEventLessonModel::hasChildren(const QModelIndex &parent) const
 
 Qt::ItemFlags InputEventLessonModel::flags(const QModelIndex &index) const
 {
+
   if (!index.isValid())
     return Qt::NoItemFlags;
-  return Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsDragEnabled;
+  Qt::ItemFlags flags = Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+  if(index.column() == 0)
+    flags |= Qt::ItemIsEditable;
+  return flags;
 }
 
 bool InputEventLessonModel::removeRows(int row, int count, const QModelIndex &parent)
@@ -1213,4 +1228,26 @@ void InputEventLessonModel::sourceRowsRemoved(const QModelIndex &parent, int sta
   //This is a hack, but it is not worth dealing with, just reload the data
   sourceReset();
   return;
+}
+bool InputEventLessonModel::setData ( const QModelIndex & index, const QVariant & value, int role )
+{
+  if (role != Qt::EditRole)
+    return false;
+
+  if(!index.parent().isValid() && index.row() >= 0 && index.row() < m_lessons.size()){
+    m_lessons[index.row()].title = value.toString();
+    emit dataChanged(index, index);
+    return true;
+  }
+  return false;
+}
+
+void InputEventLessonModel::setLessons(const lessonList& lessons)
+{
+  m_lessons = lessons;
+  sourceReset();
+}
+const lessonList& InputEventLessonModel::lessons()
+{
+  return m_lessons;
 }

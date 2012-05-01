@@ -10,6 +10,7 @@
 #include <QVariant>
 #include <QStringList>
 #include <QString>
+#include <QDebug>
 
 class QByteArray;
 class QSqlQuery;
@@ -238,6 +239,11 @@ class InputEventFilterModel : public QSortFilterProxyModel
     QList<int> m_rows;
 };
 
+struct lesson{
+  QString title;
+  QString text;
+};
+typedef QList<lesson> lessonList;
 // proxy model for the InputEvent model that converts the list
 // into a tree, grouped by lessons
 class InputEventLessonModel : public QAbstractProxyModel
@@ -245,7 +251,7 @@ class InputEventLessonModel : public QAbstractProxyModel
   Q_OBJECT
 
   public:
-  InputEventLessonModel(QAbstractItemModel *sourceModel, InputEventManager *InputEvents, QObject *parent = 0, const QStringList & lessons=QStringList(), double similarity=.9);
+  InputEventLessonModel(QAbstractItemModel *sourceModel, InputEventManager *InputEvents, QObject *parent = 0);
   QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
   int columnCount(const QModelIndex &parent) const;
   int rowCount(const QModelIndex &parent = QModelIndex()) const;
@@ -256,12 +262,17 @@ class InputEventLessonModel : public QAbstractProxyModel
   bool hasChildren(const QModelIndex &parent = QModelIndex()) const;
   Qt::ItemFlags flags(const QModelIndex &index) const;
   bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex());
+  bool setData ( const QModelIndex & index, const QVariant & value, int role = Qt::EditRole );
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
 
+  QModelIndex buddy(const QModelIndex &index) const;
+
   void setSourceModel(QAbstractItemModel *sourceModel);
+  void setLessons(const lessonList& lessons);
+  const lessonList& lessons();
 
   private slots:
-    void sourceReset();
+  void sourceReset();
   void sourceRowsInserted(const QModelIndex &parent, int start, int end);
   void sourceRowsRemoved(const QModelIndex &parent, int start, int end);
 
@@ -269,8 +280,9 @@ class InputEventLessonModel : public QAbstractProxyModel
   
   mutable QList< QList<int> > m_sourceRowCache;
   mutable QMap<int,QPair<int,int> > m_sourceRowMap;
-  mutable QStringList m_lessons;
+  mutable lessonList m_lessons;
   mutable QList<count> m_lessonSums;
   double m_lessonSimilarity;
+  static const int m_headerSize = 5;
   InputEventManager *m_InputEvents;
 };

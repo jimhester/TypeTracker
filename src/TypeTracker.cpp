@@ -43,7 +43,10 @@ LRESULT CALLBACK HookProc(int nCode, WPARAM wParam, LPARAM lParam)
 QWidget* TypeTracker::app = 0;
 
   TypeTracker::TypeTracker() 
-: timeout_msec(1000)
+: timeout_msec(1000),
+ m_hook(0),
+ m_lessonModel(0),
+ m_manager(0)
 {
   setupUi(this);
   readSettings();
@@ -60,7 +63,7 @@ QWidget* TypeTracker::app = 0;
   setCentralWidget(tab);
   eventTable = setupTableView(QObject::tr("Input Events"));
   tab->addTab(eventTable,"Events");
-  ttTreeView* lessonView = setupLessonTreeView(QObject::tr("Lessons"));
+  QTreeView* lessonView = setupLessonTreeView(QObject::tr("Lessons"));
   tab->addTab(lessonView,"Lessons");
 
   //QVBoxLayout *layout = new QVBoxLayout;
@@ -109,18 +112,24 @@ void TypeTracker::readLessons()
 
   QTextStream in(&file);
   while (!in.atEnd()) {
-      QString line = in.readLine();
-      m_lessons.append(line);
+    lesson L;
+    QStringList vals = in.readLine().split('\t');
+    L.title = vals.at(0);
+    L.text = vals.at(1);
+    m_lessons.append(L);
   }
 }
 void TypeTracker::writeLessons()
 {
-  QFile file("lessons.txt");
-  if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-         return;
-  QTextStream out(&file);
-  foreach(QString lesson, m_lessons){
-    out << lesson << "\n";
+  if(m_lessonModel){
+    m_lessons = m_lessonModel->lessons();
+    QFile file("lessons.txt");
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+           return;
+    QTextStream out(&file);
+    foreach(lesson L, m_lessons){
+      out << L.title << "\t" << L.text << "\n";
+    }
   }
 }
 void TypeTracker::exportSelection()
@@ -158,7 +167,7 @@ void TypeTracker::exportSelection()
   }
 }
 void TypeTracker::generateLessons()
-{
+{  
   readLessons();
   typedef QPair<QString,QList<int> > simPair;
   const QList<InputEvent>& events = m_manager->InputEvents();
@@ -172,26 +181,28 @@ void TypeTracker::generateLessons()
       }
     }
   }
-  foreach(simPair val,similarities){
-    if(!m_lessons.contains(val.first) && val.second.length() > 1)
-      m_lessons.append(val.first);
+  QStringList lessons;
+  foreach(lesson l, m_lessons){
+    lessons.append(l.text);
   }
+  foreach(simPair val,similarities){
+    int i = 0;
+    bool found = false;
+    while(i < m_lessons.size() && !found){
+      found = val.first == m_lessons.at(i).text;
+      i++;
+    }
+    if(!found && val.second.length() > 1){
+      lesson l;
+      l.text = val.first;
+      m_lessons.append(l);
+    }
+  }
+  if(m_lessonModel)
+    m_lessonModel->setLessons(m_lessons);
   writeLessons();
 }
 
-
-ttTreeView* TypeTracker::setupTreeView(const QString &title)
-{
-  ttTreeView* view = new ttTreeView(this);
-  InputEventModel * model = m_manager->inputEventModel();
-  m_treeModel = new InputEventTreeModel(model,this);
-  QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(this);
-  proxyModel->setSourceModel(m_treeModel);
-  view->setModel(proxyModel);
-  view->setWindowTitle(title);
-  view->setSortingEnabled(true);
-  return view;
-}
 EditTableView* TypeTracker::setupTableView(const QString &title)
 {
   EditTableView* view = new EditTableView(this);
@@ -205,19 +216,20 @@ EditTableView* TypeTracker::setupTableView(const QString &title)
 
   return view;
 }
-ttTreeView* TypeTracker::setupLessonTreeView(const QString &title)
+QTreeView* TypeTracker::setupLessonTreeView(const QString &title)
 {
-  generateLessons();
-  ttTreeView* view = new ttTreeView(this);
+  QTreeView* view = new QTreeView(this);
+//  ttTreeView* view = new ttTreeView(this);
   InputEventModel * model = m_manager->inputEventModel();
-  InputEventLessonModel *lesson = new InputEventLessonModel(model,m_manager,this,m_lessons);
+  m_lessonModel = new InputEventLessonModel(model,m_manager,this);
   QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(this);
-  proxyModel->setSourceModel(lesson);
+  proxyModel->setSourceModel(m_lessonModel);
   view->setModel(proxyModel);
+  view->setSelectionBehavior(QAbstractItemView::SelectItems);
   view->setWindowTitle(title);
   view->setSortingEnabled(true);
-  view->setColumnWidth(0,20);
-  view->setSelectionMode(QAbstractItemView::MultiSelection);
+  view->setColumnWidth(2,50);
+  generateLessons();
   return view;
 }
 void TypeTracker::keyPressEvent(QKeyEvent *event)
@@ -352,5 +364,6 @@ void TypeTracker::readSettings()
 void TypeTracker::closeEvent(QCloseEvent *event)
 {
   writeSettings();
+  writeLessons();
   event->accept();
 }
